@@ -1,0 +1,6 @@
+{
+  "name": "BrainTipster",
+  "description": "Un'applicazione AI avanzata per ottenere previsioni, statistiche dettagliate e pronostici sulle partite di calcio, per aiutarti nelle tue scommesse sportive.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
