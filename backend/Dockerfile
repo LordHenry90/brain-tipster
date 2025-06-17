@@ -8,7 +8,7 @@ WORKDIR /usr/src/app
 # Copy package.json.
 # If you have a package-lock.json, it's good practice to copy it too for reproducible builds.
 # COPY package*-lock.json ./
-COPY package.json ./
+COPY package.json ./backend
 
 # Install app dependencies
 # Using --only=production to avoid installing devDependencies
