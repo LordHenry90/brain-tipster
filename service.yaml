@@ -43,8 +43,6 @@ spec:
         - name: http1
           containerPort: 8080
         env:
-        - name: API_KEY
-          value: AIzaSyAzHSthtF-cf5LNN1XzKwlfhXCBiYzxBcs
         - name: SPORTS_API_KEY
           value: 4051f2a9968715ee2d76dbbadb1ec3a7
         - name: OPENROUTER_API_KEY
