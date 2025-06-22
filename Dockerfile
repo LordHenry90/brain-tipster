@@ -1,14 +1,18 @@
 # Dockerfile per Railway Deploy - BrainTipster Backend
 FROM node:18-alpine
 
+# Installa curl per health check
+RUN apk add --no-cache curl
+
 # Imposta directory di lavoro
 WORKDIR /app
 
-# Copia package.json e package-lock.json
-COPY backend/package*.json ./
+# Copia package.json
+COPY backend/package.json ./
 
-# Installa solo dipendenze di produzione
-RUN npm ci --only=production && npm cache clean --force
+# Installa dipendenze (usa npm install invece di npm ci per essere più flessibile)
+RUN npm install --only=production --no-audit --no-fund && \
+    npm cache clean --force
 
 # Copia tutto il codice del backend
 COPY backend/ ./
@@ -25,8 +29,8 @@ USER braintipster
 EXPOSE $PORT
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "http.get('http://localhost:' + (process.env.PORT || 3001) + '/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:${PORT:-3001}/health || exit 1
 
 # Comando di avvio
 CMD ["node", "server.js"]
