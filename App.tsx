@@ -15,15 +15,25 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
   BACKEND_API_URL = 'http://localhost:3001/api/predict';
   console.log('Running in local development mode. Backend URL:', BACKEND_API_URL);
 } else {
-  // **** IMPORTANTE PER LA PRODUZIONE ****
-  // Sostituisci la stringa qui sotto con l'URL completo del tuo servizio backend Cloud Run.
-  // Esempio: 'https://braintipster-backend-abcdef123-uc.a.run.app/api/predict'
-  // L'URL del tuo backend dovrebbe essere simile a: https://braintipster-y5st4ppywa-uw.a.run.app/api/predict
-  // (assicurati che 'braintipster-y5st4ppywa-uw.a.run.app' sia il servizio Cloud Run che esegue il backend Node.js)
-  BACKEND_API_URL = 'https://braintipster-y5st4ppywa-uw.a.run.app/api/predict'; 
+  // **** IMPORTANTE PER LA PRODUZIONE (es. Railway, Cloud Run, ecc.) ****
+  // SOSTITUISCI LA STRINGA QUI SOTTO con l'URL completo del tuo servizio backend deployato.
+  // Esempio per Railway: 'https://braintipster-backend-12345.up.railway.app/api/predict'
+  // Esempio per Cloud Run: 'https://braintipster-backend-abcdef123-uc.a.run.app/api/predict'
+  // 
+  // ATTUALMENTE È UN PLACEHOLDER GENERICO - DEVE ESSERE CAMBIATO!
+  BACKEND_API_URL = 'https://IL_TUO_URL_BACKEND_DEPLOYATO_SU_RAILWAY_O_ALTRO/api/predict'; 
   console.log('Running in production-like mode. Backend URL:', BACKEND_API_URL);
-  if (BACKEND_API_URL === 'https://YOUR_CLOUD_RUN_BACKEND_URL/api/predict' || BACKEND_API_URL.includes('YOUR_CLOUD_RUN_BACKEND_URL')) {
-    console.warn('ATTENZIONE: BACKEND_API_URL sembra essere ancora il placeholder. Aggiornalo con il tuo URL Cloud Run effettivo in App.tsx!');
+  
+  if (BACKEND_API_URL.includes('IL_TUO_URL_BACKEND_DEPLOYATO_SU_RAILWAY_O_ALTRO') || 
+      BACKEND_API_URL.includes('YOUR_CLOUD_RUN_BACKEND_URL')) { // Controllo per entrambi i placeholder comuni
+    console.warn(
+        'ATTENZIONE CRITICA: BACKEND_API_URL in App.tsx è ancora un placeholder generico! ' +
+        'Devi aggiornarlo con l\'URL effettivo del tuo backend deployato su Railway (o altra piattaforma) ' +
+        'affinché l\'applicazione funzioni correttamente in produzione.'
+    );
+    // Potresti anche voler mostrare un avviso visibile all'utente o bloccare la funzionalità
+    // se questo non è configurato, ma per ora un log aggressivo è un buon inizio.
+    // alert("Configurazione backend mancante! L'applicazione non funzionerà correttamente. Contatta l'amministratore.");
   }
 }
 // --- FINE CONFIGURAZIONE URL BACKEND ---
@@ -34,7 +44,9 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
 // Deve corrispondere alla variabile d'ambiente FRONTEND_API_KEY configurata nel tuo backend.
 const CLIENT_SIDE_API_KEY: string = 'e20AL7XEDZVXQ3n3ly2v7SSE5YBl5fpi3GkzQM858oUHTM8bdMM5v3yvUEKlXYUkyGRVhExQr7CnCJDO6PWZhoNvC1iJCnGhoxBlpxeLUYdmnyIDHEEa5unTbZhpVsg8';
 
-if (CLIENT_SIDE_API_KEY === 'YOUR_SECRET_FRONTEND_API_KEY_HERE') { // This check will now be false
+// Questo controllo verifica se la chiave è il placeholder ORIGINALE, non la tua chiave attuale.
+// Se hai già sostituito 'YOUR_SECRET_FRONTEND_API_KEY_HERE' con la tua chiave, questo log non apparirà, ed è corretto.
+if (CLIENT_SIDE_API_KEY === 'YOUR_SECRET_FRONTEND_API_KEY_HERE') { 
   console.warn('ATTENZIONE: CLIENT_SIDE_API_KEY è ancora il placeholder. Aggiornala con la chiave API corretta per il backend, se l\'autenticazione è attiva sul backend!');
 }
 // --- FINE CONFIGURAZIONE API KEY FRONTEND ---
@@ -45,7 +57,6 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Questi stati verranno popolati dalla risposta del backend
   const [refinementIssue, setRefinementIssue] = useState<string | null>(null);
   const [sportsApiError, setSportsApiError] = useState<string | null>(null);
 
@@ -56,19 +67,23 @@ const App: React.FC = () => {
     setRefinementIssue(null); 
     setSportsApiError(null);
 
-    try {
-      // La chiave API Gemini è ora gestita dal backend, quindi non c'è bisogno di controllarla qui.
-      // Il controllo della chiave API Sports è anch'esso gestito dal backend.
+    // Controlla se l'URL del backend è ancora il placeholder in un ambiente di produzione
+    if ((window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') &&
+        (BACKEND_API_URL.includes('IL_TUO_URL_BACKEND_DEPLOYATO_SU_RAILWAY_O_ALTRO') || 
+         BACKEND_API_URL.includes('YOUR_CLOUD_RUN_BACKEND_URL'))) {
+      setError("Errore di configurazione critico: l'URL del servizio backend non è stato impostato correttamente per l'ambiente di produzione. Impossibile contattare il server.");
+      setIsLoading(false);
+      return;
+    }
 
+    try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
-      // Aggiungi la chiave API frontend se configurata e non è il placeholder
+      
       if (CLIENT_SIDE_API_KEY && CLIENT_SIDE_API_KEY !== 'YOUR_SECRET_FRONTEND_API_KEY_HERE') {
         headers['X-API-KEY'] = CLIENT_SIDE_API_KEY;
       } else if (CLIENT_SIDE_API_KEY === 'YOUR_SECRET_FRONTEND_API_KEY_HERE' && (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
-        // Se la chiave è un placeholder e non siamo in sviluppo locale, potremmo voler avvisare più aggressivamente.
-        // Se il backend ha FRONTEND_API_KEY configurata, la richiesta fallirà lì.
         console.error('CRITICAL: CLIENT_SIDE_API_KEY is still the placeholder in a non-local environment. Backend authentication will likely fail if enabled.');
       }
 
@@ -109,7 +124,7 @@ const App: React.FC = () => {
             \n- Il server backend non è in esecuzione o non è raggiungibile (verifica l'URL: ${BACKEND_API_URL}).
             \n- Problemi di connessione Internet o configurazione di rete (firewall, VPN).
             \n- Errore CORS se il backend non è configurato correttamente per accettare richieste da questo dominio frontend.
-            \n- Se stai usando l'URL di produzione, assicurati di aver sostituito il placeholder 'YOUR_CLOUD_RUN_BACKEND_URL' con l'URL corretto del servizio backend e che tale servizio stia eseguendo l'immagine corretta.`;
+            \n- Assicurati di aver sostituito il placeholder nell'URL del backend con l'URL corretto del tuo servizio deployato (es. su Railway) e che tale servizio stia eseguendo l'immagine corretta.`;
         } else {
             errorMessage = err.message; 
         }
@@ -121,8 +136,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Non c'è più bisogno di isApiMode o degli useEffect correlati, 
-  // né di isSportsApiKeyMissing perché la gestione delle chiavi è del backend.
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-between bg-transparent text-text-primary selection:bg-brand-primary selection:text-white">
@@ -132,7 +145,6 @@ const App: React.FC = () => {
           Benvenuto in BrainTipster! Inserisci i dettagli della partita per ricevere un pronostico AI avanzato, statistiche dettagliate e consigli di betting.
         </p>
         
-        {/* L'avviso isSportsApiKeyMissing è stato rimosso. sportsApiError gestirà gli errori specifici dell'API Sports. */}
 
         <MatchInputForm onSubmit={handleMatchSubmit} isLoading={isLoading} />
         
@@ -155,7 +167,7 @@ const App: React.FC = () => {
               <p className="text-danger-light text-base sm:text-lg whitespace-pre-line">{error}</p>
             </div>
           )}
-          {sportsApiError && !isLoading && !error && ( // Mostra solo se non c'è un errore generale più grave
+          {sportsApiError && !isLoading && !error && ( 
             <div className="my-6 p-4 bg-yellow-500/10 text-yellow-600 border border-yellow-500/30 rounded-xl w-full text-center animate-fadeIn shadow-lg">
                 <div className="flex justify-center items-center mb-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -166,7 +178,7 @@ const App: React.FC = () => {
                 <p className="text-yellow-700 text-sm">{sportsApiError}</p>
             </div>
           )}
-          {refinementIssue && !isLoading && !error && ( // Mostra solo se non c'à un errore generale più grave
+          {refinementIssue && !isLoading && !error && ( 
             <div className="my-6 p-4 bg-yellow-500/10 text-yellow-600 border border-yellow-500/30 rounded-xl w-full text-center animate-fadeIn shadow-lg">
                 <div className="flex justify-center items-center mb-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
