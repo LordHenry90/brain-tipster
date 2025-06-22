@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 // Import servizi
 import { getMatchPrediction } from './services/geminiService.js';
@@ -165,9 +166,17 @@ app.post('/api/predict', authenticateAPI, async (req, res) => {
         
         console.log(`🏆 Elaborazione: ${homeTeam} vs ${awayTeam} (${league || 'Campionato non specificato'})`);
         
-        // Chiamata al servizio di predizione
+        // CORREZIONE: Crea oggetto matchInput per la chiamata al servizio
+        const matchInput = {
+            homeTeam,
+            awayTeam,
+            league,
+            matchDate
+        };
+        
+        // Chiamata al servizio di predizione con oggetto matchInput
         const startTime = Date.now();
-        const result = await getMatchPrediction(homeTeam, awayTeam, league, matchDate);
+        const result = await getMatchPrediction(matchInput);
         const processingTime = Date.now() - startTime;
         
         console.log(`✅ Predizione completata in ${processingTime}ms`);
@@ -176,6 +185,12 @@ app.post('/api/predict', authenticateAPI, async (req, res) => {
         if (result.parsed && result.parsed._metadata) {
             result.parsed._metadata.processingTimeMs = processingTime;
             result.parsed._metadata.requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        } else if (result.parsed) {
+            // Crea l'oggetto _metadata se non esiste
+            result.parsed._metadata = {
+                processingTimeMs: processingTime,
+                requestId: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+            };
         }
         
         res.json(result);
@@ -197,7 +212,7 @@ app.get('*', (req, res) => {
     const indexPath = path.join(__dirname, 'public', 'index.html');
     
     // Se index.html esiste, servilo (per SPA)
-    if (require('fs').existsSync(indexPath)) {
+    if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
         // Altrimenti mostra una pagina di benvenuto

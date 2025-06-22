@@ -13,34 +13,43 @@ try {
 }
 
 // Import dei servizi con gestione errori
-let fetchExternalMatchData, callOpenRouterLLM;
+let fetchExternalMatchData = null;
+let callOpenRouterLLM = null;
+
 try {
   const sportsModule = await import('./sportsApiService.js');
   fetchExternalMatchData = sportsModule.fetchExternalMatchData;
+  console.log('✅ sportsApiService.js caricato con successo');
 } catch (error) {
   console.warn('⚠️ sportsApiService.js non caricato:', error.message);
-  fetchExternalMatchData = null;
 }
 
 try {
   const openRouterModule = await import('./openRouterService.js');
   callOpenRouterLLM = openRouterModule.callOpenRouterLLM;
+  console.log('✅ openRouterService.js caricato con successo');
 } catch (error) {
   console.warn('⚠️ openRouterService.js non caricato:', error.message);
-  callOpenRouterLLM = null;
 }
 
 // Tipi importati come JSDoc per riferimento, dato che siamo in JS
 /**
- * @typedef {import('../../types').MatchInput} MatchInput
- * @typedef {import('../../types').GeminiPredictionResponse} GeminiPredictionResponse
- * @typedef {import('../../types').GeminiAPIResponseFormat} GeminiAPIResponseFormat
- * @typedef {import('../../types').PredictionDetails} PredictionDetails
- * @typedef {import('../../types').WebSource} WebSource
- * @typedef {import('../../types').SportsAPIData} SportsAPIData
+ * @typedef {Object} MatchInput
+ * @property {string} homeTeam - Nome della squadra di casa
+ * @property {string} awayTeam - Nome della squadra ospite
+ * @property {string} [league] - Nome della lega/competizione
+ * @property {string} [matchDate] - Data della partita
  */
 
-/** @typedef {{ googleSearch: {} }} GoogleSearchTool */
+/**
+ * @typedef {Object} GeminiPredictionResponse
+ * @property {Object} parsed - Dati predizione parsati
+ * @property {string} rawText - Testo grezzo della risposta
+ * @property {Array} searchSources - Fonti di ricerca web
+ * @property {Object} externalSportsData - Dati sportivi esterni
+ * @property {string} [refinementIssue] - Messaggio sui problemi di raffinamento
+ * @property {string} [sportsApiError] - Errore API sportiva
+ */
 
 const formatSportsDataForPrompt = (sportsData, homeTeamNameInput, awayTeamNameInput) => {
   if (!sportsData || !sportsData.matchData) {
@@ -216,95 +225,106 @@ const checkEmpty = (value) => {
   return false;
 };
 
+/**
+ * Funzione principale per ottenere predizioni di partita
+ * @param {MatchInput} matchInput - Oggetto contenente i dati della partita
+ * @returns {Promise<GeminiPredictionResponse>} - Risultato dell'analisi
+ */
 export const getMatchPrediction = async (matchInput) => {
+  // Validazione input
+  if (!matchInput || typeof matchInput !== 'object') {
+    throw new Error('matchInput deve essere un oggetto valido');
+  }
+  
+  if (!matchInput.homeTeam || !matchInput.awayTeam) {
+    throw new Error('homeTeam e awayTeam sono campi obbligatori');
+  }
+
   console.log(`🚀 Inizio analisi: ${matchInput.homeTeam} vs ${matchInput.awayTeam}`);
   
-  // La chiave API_KEY per Gemini è verificata nel server.js prima di chiamare questa funzione
-  // Le chiavi SPORTS_API_KEY e OPENROUTER_API_KEY sono usate direttamente da process.env nei rispettivi servizi
+  // Verifica chiave API Gemini
+  if (!process.env.API_KEY) {
+    throw new Error('API_KEY per Gemini non configurata nel backend');
+  }
 
   let externalSportsData = null;
   let sportsApiErrorMessage = undefined;
   let externalApiDataUsedInitially = false;
 
-  const SPORTS_API_KEY = process.env.SPORTS_API_KEY; // Chiave Sports API dal backend env
+  const SPORTS_API_KEY = process.env.SPORTS_API_KEY;
 
+  // Tentativo di recupero dati dall'API Sports
   if (SPORTS_API_KEY && fetchExternalMatchData) {
     try {
-      console.log("Tentativo di recupero dati da API Sports (chiave disponibile nel backend)...");
+      console.log("🔍 Tentativo di recupero dati da API Sports...");
       externalSportsData = await fetchExternalMatchData(matchInput, SPORTS_API_KEY);
       
       if (externalSportsData && externalSportsData.matchData && 
           (externalSportsData.matchData.homeTeamStats?.fixturesPlayed !== undefined || 
            externalSportsData.matchData.awayTeamStats?.fixturesPlayed !== undefined ||
-           externalSportsData.matchData.headToHead?.totalMatches !== undefined) ) {
-        console.log("Dati API Sports recuperati con successo e considerati significativi.");
+           externalSportsData.matchData.headToHead?.totalMatches !== undefined)) {
+        console.log("✅ Dati API Sports recuperati con successo e considerati significativi.");
         externalApiDataUsedInitially = true;
       } else {
-        if (!sportsApiErrorMessage) {
-            sportsApiErrorMessage = "Dati API Sports non trovati o insufficienti per questa partita. L'analisi potrebbe essere basata solo su web search e conoscenze generali.";
-        }
-        if (externalSportsData) {
-            console.warn("Dati API Sports recuperati ma considerati non significativi o insufficienti.");
-        } else {
-            console.warn("Nessun dato (null) restituito da fetchExternalMatchData.");
-        }
+        sportsApiErrorMessage = "Dati API Sports non trovati o insufficienti per questa partita. L'analisi sarà basata su web search e conoscenze generali.";
+        console.warn("⚠️ " + sportsApiErrorMessage);
       }
     } catch (sportsError) {
-      console.error("Errore durante il recupero dei dati dall'API Sports (gestito in geminiService del backend):", sportsError);
-      if (sportsError instanceof Error) {
-        sportsApiErrorMessage = sportsError.message;
-      } else {
-        sportsApiErrorMessage = "Errore sconosciuto durante il recupero dei dati sportivi esterni.";
-      }
+      console.error("❌ Errore durante il recupero dei dati dall'API Sports:", sportsError);
+      sportsApiErrorMessage = sportsError instanceof Error ? sportsError.message : "Errore sconosciuto durante il recupero dei dati sportivi esterni.";
       externalSportsData = null;
     }
   } else {
     if (!SPORTS_API_KEY) {
       sportsApiErrorMessage = "SPORTS_API_KEY non configurata nel backend. Impossibile recuperare statistiche esterne dettagliate.";
-      console.warn(sportsApiErrorMessage);
+      console.warn("⚠️ " + sportsApiErrorMessage);
     }
     if (!fetchExternalMatchData) {
       console.warn("⚠️ fetchExternalMatchData non disponibile");
     }
   }
 
-  // ✅ CORREZIONE: Inizializzazione corretta dell'API Gemini
+  // Inizializzazione API Gemini
   console.log('🔧 Inizializzazione GoogleGenerativeAI...');
-  const ai = new GoogleGenerativeAI(process.env.API_KEY);
+  let ai;
+  try {
+    ai = new GoogleGenerativeAI(process.env.API_KEY);
+  } catch (error) {
+    throw new Error(`Errore nell'inizializzazione di GoogleGenerativeAI: ${error.message}`);
+  }
   
   const geminiPrompt = buildGeminiPrompt(matchInput, externalSportsData);
-  console.log(`Lunghezza prompt Gemini: ${geminiPrompt.length} caratteri.`);
+  console.log(`📝 Lunghezza prompt Gemini: ${geminiPrompt.length} caratteri.`);
 
+  // Configurazione del modello
+  const hasSearchTools = !!matchInput.matchDate;
   const modelConfig = {
     temperature: 0.1, 
     topP: 0.8,      
-    topK: 30,       
-    tools: matchInput.matchDate ? [{ googleSearch: {} }] : undefined,
-    responseMimeType: !matchInput.matchDate ? "application/json" : undefined,
+    topK: 30,
+    maxOutputTokens: 4096,
   };
   
-  // Rimuovi responseMimeType se tools è presente, perché non sono compatibili
-  if (modelConfig.tools) {
-    delete modelConfig.responseMimeType;
-  }
+  const safetySettings = [
+    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+  ];
 
-  // ✅ CORREZIONE: Ottenimento corretto del modello
+  // Ottenimento del modello
   console.log('🤖 Configurazione modello Gemini...');
-  const model = ai.getGenerativeModel({
-    model: GEMINI_MODEL_NAME,
-    generationConfig: {
-      temperature: modelConfig.temperature,
-      topP: modelConfig.topP,
-      topK: modelConfig.topK,
-      maxOutputTokens: 4096,
-    },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-    ],
-  });
+  let model;
+  try {
+    model = ai.getGenerativeModel({
+      model: GEMINI_MODEL_NAME,
+      generationConfig: modelConfig,
+      safetySettings: safetySettings,
+      tools: hasSearchTools ? [{ googleSearch: {} }] : undefined,
+    });
+  } catch (error) {
+    throw new Error(`Errore nella configurazione del modello Gemini: ${error.message}`);
+  }
 
   let geminiResultText;
   let parsedGeminiData;
@@ -313,16 +333,22 @@ export const getMatchPrediction = async (matchInput) => {
   let refinementIssueMessage = undefined;
 
   try {
-    console.log("Invio richiesta a Gemini...");
+    console.log("📡 Invio richiesta a Gemini...");
     
-    // ✅ CORREZIONE: Chiamata corretta al modello
+    // Chiamata al modello Gemini
     const geminiResponse = await model.generateContent(geminiPrompt);
+    
+    if (!geminiResponse || !geminiResponse.response) {
+      throw new Error("Risposta non valida da Gemini");
+    }
+    
     const response = await geminiResponse.response;
     geminiResultText = response.text();
 
-    console.log("Testo grezzo ricevuto da Gemini (primi 500 caratteri):", geminiResultText?.substring(0,500));
+    console.log("📥 Testo grezzo ricevuto da Gemini (primi 500 caratteri):", geminiResultText?.substring(0, 500));
 
-    if (matchInput.matchDate && geminiResponse.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+    // Estrazione delle fonti di ricerca web (se presenti)
+    if (hasSearchTools && geminiResponse.candidates?.[0]?.groundingMetadata?.groundingChunks) {
       geminiResponse.candidates[0].groundingMetadata.groundingChunks.forEach(chunk => {
         if (chunk.web) {
           geminiSearchSources.push({
@@ -331,151 +357,199 @@ export const getMatchPrediction = async (matchInput) => {
           });
         }
       });
+      console.log(`🔍 Trovate ${geminiSearchSources.length} fonti di ricerca web`);
     }
     
+    // Controllo se la risposta è vuota
     if (!geminiResultText || geminiResultText.trim() === "") {
-        console.warn("La risposta di Gemini era vuota.");
+      throw new Error("La risposta di Gemini era vuota");
     }
     
+    // Parsing del JSON dalla risposta di Gemini
     try {
-      let jsonStr = geminiResultText ? geminiResultText.trim() : "";
-      if (jsonStr) {
-        const fencedJsonRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
-        const fencedMatch = jsonStr.match(fencedJsonRegex);
+      let jsonStr = geminiResultText.trim();
+      
+      // Rimozione di eventuali markdown code blocks
+      const fencedJsonRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
+      const fencedMatch = jsonStr.match(fencedJsonRegex);
 
-        if (fencedMatch && fencedMatch[1]) {
-          jsonStr = fencedMatch[1].trim();
+      if (fencedMatch && fencedMatch[1]) {
+        jsonStr = fencedMatch[1].trim();
+      } else {
+        // Estrazione del JSON dal testo
+        const firstBrace = jsonStr.indexOf('{');
+        const lastBrace = jsonStr.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+          jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+        }
+      }
+      
+      if (jsonStr) {
+        const apiResponse = JSON.parse(jsonStr);
+        
+        // Verifica della struttura della risposta
+        if (apiResponse && apiResponse.predictions) {
+          parsedGeminiData = apiResponse.predictions;
+        } else if (apiResponse.partitaIdentificata || apiResponse.squadraVincente) {
+          // Se il JSON è direttamente l'oggetto predictions
+          parsedGeminiData = apiResponse;
         } else {
-          const firstBrace = jsonStr.indexOf('{');
-          const lastBrace = jsonStr.lastIndexOf('}');
-          if (firstBrace !== -1 && lastBrace > firstBrace) {
-              jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-          } else {
-              jsonStr = ""; 
+          throw new Error("Struttura JSON non riconosciuta");
+        }
+      } else {
+        throw new Error("Impossibile estrarre JSON valido dalla risposta");
+      }
+
+      // Aggiungi metadati
+      if (parsedGeminiData) {
+        parsedGeminiData.externalApiDataUsed = externalApiDataUsedInitially;
+        
+        // Aggiungi fonti di ricerca se non presenti
+        if (geminiSearchSources.length > 0 && (!parsedGeminiData.fontiRicercaWeb || parsedGeminiData.fontiRicercaWeb.length === 0)) {
+          parsedGeminiData.fontiRicercaWeb = geminiSearchSources;
+        }
+      }
+      
+      console.log("✅ JSON di Gemini parsato con successo");
+      
+    } catch (parseError) {
+      console.error("❌ Errore nel parsing JSON da Gemini:", parseError);
+      throw new Error(`Errore nel parsing della risposta Gemini: ${parseError.message}`);
+    }
+
+    // Imposta i dati parsati come risultato finale iniziale
+    finalRefinedData = parsedGeminiData;
+    
+    // Tentativo di raffinamento con OpenRouter (se disponibile)
+    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+    const openRouterEnabled = process.env.DISABLE_OPENROUTER !== 'true';
+
+    if (parsedGeminiData && OPENROUTER_API_KEY && OPENROUTER_MODEL_NAME && callOpenRouterLLM && openRouterEnabled) {
+      console.log("🔄 Tentativo di raffinamento collaborativo con OpenRouter (Mistral)...");
+      
+      try {
+        const refinementPrompt = buildRefinementPrompt(parsedGeminiData);
+        const openRouterResponseText = await callOpenRouterLLM(
+          OPENROUTER_MODEL_NAME,
+          refinementPrompt,
+          OPENROUTER_API_KEY,
+          openRouterSystemPrompt
+        );
+        
+        const trimmedOpenRouterResponse = openRouterResponseText ? openRouterResponseText.trim() : "";
+
+        if (!trimmedOpenRouterResponse || trimmedOpenRouterResponse === "Il modello OpenRouter non ha fornito un output testuale significativo.") {
+          refinementIssueMessage = "Il modello AI collaboratore (Mistral) non ha fornito un output valido per il raffinamento. Viene mostrata l'analisi iniziale.";
+        } else {
+          try {
+            let mistralJsonStr = trimmedOpenRouterResponse;
+            
+            // Rimozione markdown se presente
+            const fencedJsonRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
+            const fencedMatch = mistralJsonStr.match(fencedJsonRegex);
+            if (fencedMatch && fencedMatch[1]) {
+              mistralJsonStr = fencedMatch[1].trim();
+            }
+            
+            if (mistralJsonStr.startsWith("{") && mistralJsonStr.endsWith("}")) {
+              const mistralParsedData = JSON.parse(mistralJsonStr);
+              const tempRefinedData = { ...parsedGeminiData };
+              let fieldsRefinedCount = 0;
+              
+              // Merge dei dati raffinati
+              for (const key in tempRefinedData) {
+                if (Object.prototype.hasOwnProperty.call(mistralParsedData, key)) {
+                  const mistralValue = mistralParsedData[key];
+                  if (!checkEmpty(mistralValue)) {
+                    const originalValue = JSON.stringify(parsedGeminiData[key]);
+                    const newValue = JSON.stringify(mistralValue);
+                    
+                    tempRefinedData[key] = mistralValue;
+                    
+                    if (originalValue !== newValue) {
+                      fieldsRefinedCount++;
+                    }
+                  }
+                }
+              }
+              
+              finalRefinedData = tempRefinedData;
+              finalRefinedData.externalApiDataUsed = externalApiDataUsedInitially;
+              
+              if (fieldsRefinedCount > 0) {
+                refinementIssueMessage = `✅ Analisi arricchita con successo da Mistral (${fieldsRefinedCount} campi aggiornati).`;
+                console.log(`✅ Raffinamento completato: ${fieldsRefinedCount} campi aggiornati`);
+              } else {
+                refinementIssueMessage = "ℹ️ Mistral ha processato l'analisi, ma senza modifiche significative rilevate.";
+              }
+            } else {
+              refinementIssueMessage = "⚠️ Il modello AI collaboratore (Mistral) ha restituito un formato non JSON.";
+            }
+          } catch (parseError) {
+            console.error("❌ Errore parsing risposta Mistral:", parseError);
+            refinementIssueMessage = "❌ Errore durante l'interpretazione della risposta di Mistral.";
           }
         }
-        
-        if (jsonStr) {
-            const apiResponse = JSON.parse(jsonStr);
-            if (apiResponse && apiResponse.predictions) {
-              parsedGeminiData = apiResponse.predictions;
-            } else {
-              try {
-                  const directParse = JSON.parse(jsonStr);
-                  if (directParse.partitaIdentificata || directParse.squadraVincente) { 
-                       parsedGeminiData = directParse;
-                  }
-              } catch (e) { /* no-op */ }
-            }
-        }
+      } catch (openRouterError) {
+        console.error("❌ Errore OpenRouter:", openRouterError);
+        refinementIssueMessage = "❌ Si è verificato un errore durante la comunicazione con Mistral per il raffinamento.";
       }
-
-      if (parsedGeminiData) {
-        parsedGeminiData.externalApiDataUsed = externalApiDataUsedInitially; 
-        if (geminiSearchSources.length > 0 && (!parsedGeminiData.fontiRicercaWeb || parsedGeminiData.fontiRicercaWeb.length === 0)) {
-            parsedGeminiData.fontiRicercaWeb = geminiSearchSources;
-        }
+    } else {
+      // Gestione messaggi quando OpenRouter non è disponibile
+      if (!openRouterEnabled) {
+        refinementIssueMessage = "ℹ️ Raffinamento con OpenRouter disabilitato dalla configurazione.";
+      } else if (!OPENROUTER_API_KEY || !OPENROUTER_MODEL_NAME) {
+        refinementIssueMessage = "ℹ️ Configurazione per il modello AI collaboratore mancante. Raffinamento non eseguito.";
+      } else if (!callOpenRouterLLM) {
+        refinementIssueMessage = "ℹ️ Servizio OpenRouter non disponibile.";
       }
-    } catch (parseError) {
-      console.error("Errore nel parsing JSON da Gemini:", parseError, "Raw text:", geminiResultText);
     }
 
-    if (!parsedGeminiData && !geminiResultText) { 
-        throw new Error("Gemini non ha fornito una risposta valida (né JSON né testo grezzo).");
-    }
-    if (!parsedGeminiData && geminiResultText) {
-        console.warn("Non è stato possibile interpretare il JSON da Gemini, ma è presente testo grezzo.");
-    }
-
-    finalRefinedData = parsedGeminiData; 
-    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-
-    if (parsedGeminiData && OPENROUTER_API_KEY && OPENROUTER_MODEL_NAME && callOpenRouterLLM) {
-        console.log("Tentativo di raffinamento collaborativo con OpenRouter (Mistral)...");
-        try {
-            const refinementPrompt = buildRefinementPrompt(parsedGeminiData);
-            const openRouterResponseText = await callOpenRouterLLM(
-                OPENROUTER_MODEL_NAME,
-                refinementPrompt,
-                OPENROUTER_API_KEY,
-                openRouterSystemPrompt
-            );
-            
-            const trimmedOpenRouterResponse = openRouterResponseText ? openRouterResponseText.trim() : "";
-
-            if (trimmedOpenRouterResponse === "" || trimmedOpenRouterResponse === "Il modello OpenRouter non ha fornito un output testuale significativo.") {
-                refinementIssueMessage = "Il modello AI collaboratore (Mistral) non ha fornito un output valido per il raffinamento. Viene mostrata l'analisi iniziale.";
-            } else {
-                let mistralParsedData;
-                try {
-                    let mistralJsonStr = trimmedOpenRouterResponse;
-                    const fencedJsonRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
-                    const fencedMatch = mistralJsonStr.match(fencedJsonRegex);
-                    if (fencedMatch && fencedMatch[1]) {
-                        mistralJsonStr = fencedMatch[1].trim();
-                    }
-                    if (mistralJsonStr.startsWith("{") && mistralJsonStr.endsWith("}")) {
-                        mistralParsedData = JSON.parse(mistralJsonStr);
-                        const tempRefinedData = { ...parsedGeminiData }; 
-                        let fieldsRefinedCount = 0;
-                        for (const key in tempRefinedData) {
-                            if (Object.prototype.hasOwnProperty.call(mistralParsedData, key)) {
-                                const mistralValue = mistralParsedData[key];
-                                if (!checkEmpty(mistralValue)) {
-                                    tempRefinedData[key] = mistralValue;
-                                    if (JSON.stringify(mistralValue) !== JSON.stringify(parsedGeminiData[key])) {
-                                      fieldsRefinedCount++;
-                                    }
-                                }
-                            }
-                        }
-                        finalRefinedData = tempRefinedData;
-                        if(finalRefinedData) finalRefinedData.externalApiDataUsed = externalApiDataUsedInitially;
-                        if (fieldsRefinedCount > 0) {
-                            refinementIssueMessage = `Analisi arricchita con successo da Mistral (${fieldsRefinedCount} campi aggiornati).`;
-                        } else {
-                             refinementIssueMessage = "Mistral ha processato l'analisi, ma senza modifiche significative rilevate."
-                        }
-                    } else {
-                        refinementIssueMessage = "Il modello AI collaboratore (Mistral) ha restituito un formato non JSON.";
-                    }
-                } catch (parseError) {
-                    refinementIssueMessage = "Errore durante l'interpretazione della risposta di Mistral.";
-                    if(finalRefinedData) finalRefinedData.externalApiDataUsed = externalApiDataUsedInitially;
-                }
-            }
-        } catch (openRouterError) {
-            refinementIssueMessage = "Si è verificato un errore durante la comunicazione con Mistral per il raffinamento.";
-            if(finalRefinedData) finalRefinedData.externalApiDataUsed = externalApiDataUsedInitially;
-        }
-    } else if (parsedGeminiData && (!OPENROUTER_API_KEY || !OPENROUTER_MODEL_NAME)) {
-        refinementIssueMessage = "Configurazione per il modello AI collaboratore mancante. Raffinamento non eseguito.";
-    } else if (!callOpenRouterLLM) {
-        refinementIssueMessage = "Servizio OpenRouter non disponibile.";
+    // Assicurati che externalApiDataUsed sia sempre impostato
+    if (finalRefinedData) {
+      finalRefinedData.externalApiDataUsed = externalApiDataUsedInitially;
     }
 
     console.log("🎯 Analisi completata con successo");
 
-    return { 
-        parsed: finalRefinedData, 
-        rawText: geminiResultText, 
-        searchSources: finalRefinedData?.fontiRicercaWeb || geminiSearchSources, 
-        externalSportsData: externalSportsData, 
-        refinementIssue: refinementIssueMessage,
-        sportsApiError: sportsApiErrorMessage 
+    // Costruzione della risposta finale
+    const result = { 
+      parsed: finalRefinedData, 
+      rawText: geminiResultText, 
+      searchSources: finalRefinedData?.fontiRicercaWeb || geminiSearchSources, 
+      externalSportsData: externalSportsData
     };
+    
+    // Aggiungi messaggi opzionali solo se presenti
+    if (refinementIssueMessage) {
+      result.refinementIssue = refinementIssueMessage;
+    }
+    
+    if (sportsApiErrorMessage) {
+      result.sportsApiError = sportsApiErrorMessage;
+    }
+    
+    return result;
 
   } catch (error) {
-    console.error('Errore nel processo di generazione del pronostico (backend):', error);
+    console.error('❌ Errore nel processo di generazione del pronostico:', error);
+    
+    // Gestione errori specifici
     let finalErrorMessage = 'Errore sconosciuto durante la generazione del pronostico.';
+    
     if (error instanceof Error) {
-        finalErrorMessage = error.message; 
-        if (error.message.includes("API key not valid")) { 
-            finalErrorMessage = `Chiave API non valida. Controlla la configurazione della chiave per Gemini nel backend. (${error.message})`;
-        } else if (!error.message.toLowerCase().includes("gemini")) {
-             finalErrorMessage = `Errore API Gemini o sistema (backend): ${error.message}`;
-        }
+      finalErrorMessage = error.message;
+      
+      // Gestione errori specifici API
+      if (error.message.includes("API key not valid") || error.message.includes("API_KEY")) { 
+        finalErrorMessage = `Chiave API Gemini non valida o non configurata. Controlla la configurazione nel backend.`;
+      } else if (error.message.includes("quota") || error.message.includes("limit")) {
+        finalErrorMessage = `Limite di quota API raggiunto. Riprova più tardi.`;
+      } else if (error.message.includes("network") || error.message.includes("timeout")) {
+        finalErrorMessage = `Errore di rete durante la comunicazione con l'API. Riprova.`;
+      }
     }
+    
     throw new Error(finalErrorMessage);
   }
 };
