@@ -21,7 +21,7 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
   // Esempio per Cloud Run: 'https://braintipster-backend-abcdef123-uc.a.run.app/api/predict'
   // 
   // ATTUALMENTE È UN PLACEHOLDER GENERICO - DEVE ESSERE CAMBIATO!
-  BACKEND_API_URL = 'https://IL_TUO_URL_BACKEND_DEPLOYATO_SU_RAILWAY_O_ALTRO/api/predict'; 
+  BACKEND_API_URL = 'https://brain-tipster-production.up.railway.app/api/predict'; 
   console.log('Running in production-like mode. Backend URL:', BACKEND_API_URL);
   
   if (BACKEND_API_URL.includes('IL_TUO_URL_BACKEND_DEPLOYATO_SU_RAILWAY_O_ALTRO') || 
