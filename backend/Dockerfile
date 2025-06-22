@@ -1,34 +1,39 @@
-# Use an official Node.js runtime as a parent image
-# Using Node 20 as specified in package.json and common for modern apps
+# Usa un'immagine Node.js ufficiale come base
 FROM node:20-slim
+# o una versione più recente se preferisci, es. node:20-slim
 
-# Set the working directory in the container
+# Crea e imposta la directory di lavoro nell'immagine
 WORKDIR /usr/src/app
+# Puoi scegliere un percorso diverso, ma /usr/src/app è una convenzione comune.
 
-# Copy package.json.
-# If you have a package-lock.json, it's good practice to copy it too for reproducible builds.
-# COPY package*-lock.json ./
-COPY package.json ./backend
+# Copia PRIMA package.json e package-lock.json (se lo usi)
+# Questo sfrutta la cache di Docker: se questi file non cambiano,
+# Docker non rieseguirà 'npm install' inutilmente.
+#
+# ASSICURATI CHE I PERCORSI SORGENTE ('backend/package.json') siano corretti
+# rispetto alla directory da cui esegui 'docker build' (il tuo build context).
+# Se il Dockerfile è nella root del progetto e package.json è in 'backend/':
+COPY backend/package.json backend/package-lock.json* ./
+#
+# Se il Dockerfile è già DENTRO la directory 'backend/':
+# COPY package.json package-lock.json* ./
+#
+# Il './' come destinazione significa che i file verranno copiati nella WORKDIR (/usr/src/app)
 
-# Install app dependencies
-# Using --only=production to avoid installing devDependencies
-# --no-package-lock is used because the provided package.json does not suggest a lockfile,
-# if you add one, remove --no-package-lock.
-RUN npm install --only=production --no-package-lock
+# Installa le dipendenze di produzione
+# L'opzione --only=production è corretta per immagini di produzione.
+# --no-package-lock potrebbe non essere necessaria se hai già copiato package-lock.json
+RUN npm install --only=production
 
-# Bundle app source
-# This copies all files from the backend directory (where this Dockerfile should be)
-# into the /usr/src/app directory in the image.
-COPY . .
+# Copia il resto del codice dell'applicazione backend
+# Anche qui, adatta il percorso sorgente 'backend/.' se necessario.
+# Se il Dockerfile è nella root del progetto:
+COPY backend/. .
+# Se il Dockerfile è già DENTRO la directory 'backend/':
+# COPY . .
 
-# Your app in server.js listens on process.env.PORT || 3001.
-# Google Cloud Run automatically sets the PORT environment variable (typically to 8080).
-# Your Node.js app will automatically use this PORT variable if set.
-# Exposing 8080 is a good practice for Cloud Run.
-EXPOSE 8080
+# Specifica la porta su cui l'app ascolterà (se non già fatto in server.js o tramite ENV)
+# EXPOSE 3001 # o process.env.PORT
 
-# Define the command to run your app
-# This uses the "start" script from your package.json if you prefer,
-# or directly runs server.js.
-# CMD [ "npm", "start" ]
+# Comando per avviare l'applicazione
 CMD [ "node", "server.js" ]
