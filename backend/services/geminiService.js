@@ -83,7 +83,7 @@ const constructGeminiPrompt = (matchInput, externalApiData) => {
   const externalApiDataSection = formatSportsApiDataForPrompt(externalApiData, matchInput.homeTeam, matchInput.awayTeam);
 
   return `
-Sei un esperto analista di scommesse sportive sul calcio (Gemini). Stai preparando un'ANALISI PRELIMINARE DETTAGLIATA per una partita. Questa analisi verrà successivamente RIFINITA E POTENZIATA da un altro LLM esperto (DeepSeek) in un processo collaborativo.
+Sei un esperto analista di scommesse sportive sul calcio (Gemini). Stai preparando un'ANALISI PRELIMINARE DETTAGLIATA per una partita. Questa analisi verrà successivamente RIFINITA E POTENZIATA da un altro LLM esperto (Mistral) in un processo collaborativo.
 Il tuo compito è fornire una base solida, precisa e completa. Evita speculazioni e attieniti ai dati e a interpretazioni conservative.
 
 OBIETTIVO PRINCIPALE:
@@ -151,7 +151,7 @@ Assicurati che tutte le probabilità siano stringhe percentuali (es. "75%"). Sol
 
 const constructCollaborationRefinementPrompt = (geminiDraftAnalysis) => {
   const prompt = `
-MODELLO DEEPSEEK, ATTENZIONE: COLLABORAZIONE PER RAFFINAMENTO ANALISI CALCISTICA.
+MODELLO MISTRAL, ATTENZIONE: COLLABORAZIONE PER RAFFINAMENTO ANALISI CALCISTICA.
 
 Hai ricevuto un'ANALISI PRELIMINARE DETTAGLIATA in formato JSON da un altro LLM (Gemini). Questa analisi POTREBBE includere dati statistici da un'API esterna, indicati dal flag 'externalApiDataUsed' e dettagliati nel testo.
 Il tuo compito è AGIRE COME UN ESPERTO COLLABORATORE per RAFFINARE, MIGLIORARE e, se necessario, CORREGGERE questa analisi.
@@ -178,11 +178,11 @@ ${JSON.stringify(geminiDraftAnalysis, null, 2)}
 Il tuo contributo è fondamentale per elevare la qualità dell'analisi. Procedi con attenzione e precisione.
 Restituisci SOLO l'oggetto JSON raffinato.
 `;
-  console.log(`Prompt di raffinamento per DeepSeek (OpenRouter). Lunghezza: ${prompt.length} caratteri.`);
+  console.log(`Prompt di raffinamento per Mistral (OpenRouter). Lunghezza: ${prompt.length} caratteri.`);
   return prompt;
 };
 
-const openRouterSystemPrompt = "Sei un esperto LLM (DeepSeek) specializzato nell'analisi calcistica e nel raffinamento collaborativo di dati JSON strutturati. Il tuo compito è migliorare la precisione, la profondità e la completezza di un'analisi JSON fornita da un altro LLM, tenendo in forte considerazione eventuali dati statistici API referenziati. Devi restituire un oggetto JSON completo che mantenga la struttura originale, applicando i tuoi miglioramenti a ciascun campo. La tua risposta deve essere esclusivamente l'oggetto JSON raffinato.";
+const openRouterSystemPrompt = "Sei un esperto LLM (Mistral) specializzato nell'analisi calcistica e nel raffinamento collaborativo di dati JSON strutturati. Il tuo compito è migliorare la precisione, la profondità e la completezza di un'analisi JSON fornita da un altro LLM, tenendo in forte considerazione eventuali dati statistici API referenziati. Devi restituire un oggetto JSON completo che mantenga la struttura originale, applicando i tuoi miglioramenti a ciascun campo. La tua risposta deve essere esclusivamente l'oggetto JSON raffinato.";
 
 const isEmpty = (value) => {
   if (value === null || value === undefined) return true;
@@ -342,7 +342,7 @@ export const getMatchPrediction = async (matchInput) => {
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
     if (parsedGeminiData && OPENROUTER_API_KEY && OPENROUTER_MODEL_NAME) {
-        console.log("Tentativo di raffinamento collaborativo con OpenRouter (DeepSeek)...");
+        console.log("Tentativo di raffinamento collaborativo con OpenRouter (Mistral)...");
         try {
             const refinementPrompt = constructCollaborationRefinementPrompt(parsedGeminiData);
             const openRouterResponseText = await callOpenRouterLLM(
@@ -355,26 +355,26 @@ export const getMatchPrediction = async (matchInput) => {
             const trimmedOpenRouterResponse = openRouterResponseText ? openRouterResponseText.trim() : "";
 
             if (trimmedOpenRouterResponse === "" || trimmedOpenRouterResponse === "Il modello OpenRouter non ha fornito un output testuale significativo.") {
-                refinementIssueMessage = "Il modello AI collaboratore (DeepSeek) non ha fornito un output valido per il raffinamento. Viene mostrata l'analisi iniziale.";
+                refinementIssueMessage = "Il modello AI collaboratore (Mistral) non ha fornito un output valido per il raffinamento. Viene mostrata l'analisi iniziale.";
             } else {
-                let deepSeekParsedData;
+                let mistralParsedData;
                 try {
-                    let deepSeekJsonStr = trimmedOpenRouterResponse;
+                    let mistralJsonStr = trimmedOpenRouterResponse;
                     const fencedJsonRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
-                    const fencedMatch = deepSeekJsonStr.match(fencedJsonRegex);
+                    const fencedMatch = mistralJsonStr.match(fencedJsonRegex);
                     if (fencedMatch && fencedMatch[1]) {
-                        deepSeekJsonStr = fencedMatch[1].trim();
+                        mistralJsonStr = fencedMatch[1].trim();
                     }
-                    if (deepSeekJsonStr.startsWith("{") && deepSeekJsonStr.endsWith("}")) {
-                        deepSeekParsedData = JSON.parse(deepSeekJsonStr);
+                    if (mistralJsonStr.startsWith("{") && mistralJsonStr.endsWith("}")) {
+                        mistralParsedData = JSON.parse(mistralJsonStr);
                         const tempRefinedData = { ...parsedGeminiData }; 
                         let fieldsRefinedCount = 0;
                         for (const key in tempRefinedData) {
-                            if (Object.prototype.hasOwnProperty.call(deepSeekParsedData, key)) {
-                                const deepSeekValue = deepSeekParsedData[key];
-                                if (!isEmpty(deepSeekValue)) {
-                                    tempRefinedData[key] = deepSeekValue;
-                                    if (JSON.stringify(deepSeekValue) !== JSON.stringify(parsedGeminiData[key])) {
+                            if (Object.prototype.hasOwnProperty.call(mistralParsedData, key)) {
+                                const mistralValue = mistralParsedData[key];
+                                if (!isEmpty(mistralValue)) {
+                                    tempRefinedData[key] = mistralValue;
+                                    if (JSON.stringify(mistralValue) !== JSON.stringify(parsedGeminiData[key])) {
                                       fieldsRefinedCount++;
                                     }
                                 }
@@ -383,20 +383,20 @@ export const getMatchPrediction = async (matchInput) => {
                         finalRefinedData = tempRefinedData;
                         if(finalRefinedData) finalRefinedData.externalApiDataUsed = externalApiDataUsedInitially;
                         if (fieldsRefinedCount > 0) {
-                            refinementIssueMessage = `Analisi arricchita con successo da DeepSeek (${fieldsRefinedCount} campi aggiornati).`;
+                            refinementIssueMessage = `Analisi arricchita con successo da Mistral (${fieldsRefinedCount} campi aggiornati).`;
                         } else {
-                             refinementIssueMessage = "DeepSeek ha processato l'analisi, ma senza modifiche significative rilevate."
+                             refinementIssueMessage = "Mistral ha processato l'analisi, ma senza modifiche significative rilevate."
                         }
                     } else {
-                        refinementIssueMessage = "Il modello AI collaboratore (DeepSeek) ha restituito un formato non JSON.";
+                        refinementIssueMessage = "Il modello AI collaboratore (Mistral) ha restituito un formato non JSON.";
                     }
                 } catch (parseError) {
-                    refinementIssueMessage = "Errore durante l'interpretazione della risposta di DeepSeek.";
+                    refinementIssueMessage = "Errore durante l'interpretazione della risposta di Mistral.";
                     if(finalRefinedData) finalRefinedData.externalApiDataUsed = externalApiDataUsedInitially;
                 }
             }
         } catch (openRouterError) {
-            refinementIssueMessage = "Si è verificato un errore durante la comunicazione con DeepSeek per il raffinamento.";
+            refinementIssueMessage = "Si è verificato un errore durante la comunicazione con Mistral per il raffinamento.";
             if(finalRefinedData) finalRefinedData.externalApiDataUsed = externalApiDataUsedInitially;
         }
     } else if (parsedGeminiData && (!OPENROUTER_API_KEY || !OPENROUTER_MODEL_NAME)) {

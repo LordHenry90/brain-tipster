@@ -3,25 +3,26 @@
   "version": "1.0.0",
   "description": "BrainTipster - AI-powered football prediction app",
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "vite --host localhost --port 5173",
     "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "vite",
-    "build": "npm run build:frontend && npm run build:backend",
-    "build:frontend": "vite build",
+    "build": "npm run build:try || npm run build:emergency",
+    "build:try": "npm run build:vite && npm run build:copy",
+    "build:vite": "vite build --outDir dist --emptyOutDir",
+    "build:copy": "node copy-build.js",
+    "build:emergency": "node manual-build.js",
     "build:backend": "cd backend && npm install",
     "start": "cd backend && npm start",
-    "preview": "vite preview",
-    "install:all": "npm install && cd backend && npm install"
+    "preview": "vite preview --outDir dist"
   },
   "dependencies": {
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "fs-extra": "^11.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.1",
-    "concurrently": "^8.2.2",
     "typescript": "~5.7.2",
     "vite": "^6.2.0"
   },
