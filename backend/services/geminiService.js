@@ -42,7 +42,7 @@ try {
 
 /** @typedef {{ googleSearch: {} }} GoogleSearchTool */
 
-const formatSportsApiDataForPrompt = (sportsData, homeTeamNameInput, awayTeamNameInput) => {
+const formatSportsDataForPrompt = (sportsData, homeTeamNameInput, awayTeamNameInput) => {
   if (!sportsData || !sportsData.matchData) {
     return "Nessun dato statistico dettagliato fornito dall'API sportiva esterna per questa partita. Basa l'analisi su conoscenze generali e ricerca web.";
   }
@@ -97,7 +97,7 @@ const formatSportsApiDataForPrompt = (sportsData, homeTeamNameInput, awayTeamNam
   return promptData;
 };
 
-const constructGeminiPrompt = (matchInput, externalApiData) => {
+const buildGeminiPrompt = (matchInput, externalApiData) => {
   const dateInstruction = matchInput.matchDate
     ? `Inoltre, l'utente ha fornito una DATA SPECIFICA: '${matchInput.matchDate}'. DAI PRIORITÀ ASSOLUTA a trovare la partita ufficiale disputata in QUESTA DATA. UTILIZZA LE TUE CAPACITÀ DI RICERCA WEB per confermare l'esistenza e i dettagli della partita in questa data. Includi le fonti web che hai utilizzato per la verifica nel campo 'fontiRicercaWeb'. Se i dati API esterni forniti si riferiscono a questa data, usali come fonte primaria.`
     : `Se non è fornita una data specifica dall'utente, identifica la *prossima partita ufficiale in calendario* tra le due squadre. Se i dati API esterni sono disponibili, considerali nel contesto della prossima partita.`;
@@ -106,7 +106,7 @@ const constructGeminiPrompt = (matchInput, externalApiData) => {
     ? `Trattandosi di un torneo europeo (${matchInput.league}), è possibile che non esista uno storico di scontri diretti significativo tra le due squadre (verificalo con i dati API H2H se presenti). In tal caso, la tua analisi dovrà basarsi maggiormente su: 1) Forma attuale e performance recenti (dati API). 2) Forza relativa e performance nei rispettivi campionati nazionali (dati API e tue conoscenze). 3) Esperienza e performance in precedenti campagne europee. 4) Analisi tattica e qualità individuale dei giocatori. Se esistono scontri diretti (dati API), considerali, ma pondera la loro rilevanza se datati o in contesti molto diversi.`
     : `Considera gli scontri diretti storici (dati API H2H se presenti e rilevanti).`;
   
-  const externalApiDataSection = formatSportsApiDataForPrompt(externalApiData, matchInput.homeTeam, matchInput.awayTeam);
+  const externalApiDataSection = formatSportsDataForPrompt(externalApiData, matchInput.homeTeam, matchInput.awayTeam);
 
   return `
 Sei un esperto analista di scommesse sportive sul calcio (Gemini). Stai preparando un'ANALISI PRELIMINARE DETTAGLIATA per una partita. Questa analisi verrà successivamente RIFINITA E POTENZIATA da un altro LLM esperto (Mistral) in un processo collaborativo.
@@ -147,9 +147,9 @@ Restituisci un oggetto JSON con la chiave "predictions" che contiene un oggetto 
     "externalApiDataUsed": "boolean (true se i dati API esterni sono stati usati e sono significativi, false altrimenti)",
     "squadraVincente": { "squadra": "stringa", "probabilita": "stringa (es. '45%')" },
     "risultatoFinaleProbabilita": { "vittoriaCasa": "stringa", "pareggio": "stringa", "vittoriaOspite": "stringa" },
-    "overUnderGoals": [ { "linea": "Over 0.5", "probabilita": "stringa" }, /* ... altre ... */ { "linea": "Under 4.5", "probabilita": "stringa" } ],
-    "risultatiEsatti": [ { "risultato": "stringa", "probabilita": "stringa" } /* ... altri ... */ ],
-    "probabiliMarcatori": [ { "nomeGiocatore": "stringa", "probabilitaGol": "stringa (es. 'Alta' o '60%')" } /* ... altri ... */ ],
+    "overUnderGoals": [ { "linea": "Over 0.5", "probabilita": "stringa" }, { "linea": "Under 4.5", "probabilita": "stringa" } ],
+    "risultatiEsatti": [ { "risultato": "stringa", "probabilita": "stringa" } ],
+    "probabiliMarcatori": [ { "nomeGiocatore": "stringa", "probabilitaGol": "stringa (es. 'Alta' o '60%')" } ],
     "statisticheMediePreviste": {
       "falliTotali": "stringa (range es. '20-25 falli', basati su dati API se disponibili, altrimenti stima generale)",
       "cornerTotali": "stringa (range es. '8-11 corner', basati su dati API se disponibili, altrimenti stima generale)",
@@ -165,7 +165,6 @@ Restituisci un oggetto JSON con la chiave "predictions" che contiene un oggetto 
         "statisticaCorrelata": { "nomeStatistica": "stringa (OPZIONALE)", "valoreStatistica": "stringa (OPZIONALE)" },
         "motivazioneBreve": "stringa (basata su analisi fattuale e dati API)"
       }
-      // Includi consigli per Esito Finale, Over/Under Goals principali E POI un consiglio specifico per OGNI statistica in 'statisticheMediePreviste'
     ],
     "ragionamentoAnalitico": "stringa (Analisi preliminare concisa e fattuale (150-300 parole) CHE INTEGRA i dati API esterni (se usati), contesto, notizie oggettive, ecc. Questa sarà la base per la rifinitura.)"
   }
@@ -174,7 +173,7 @@ Assicurati che tutte le probabilità siano stringhe percentuali (es. "75%"). Sol
 `;
 };
 
-const constructCollaborationRefinementPrompt = (geminiDraftAnalysis) => {
+const buildRefinementPrompt = (geminiDraftAnalysis) => {
   const prompt = `
 MODELLO MISTRAL, ATTENZIONE: COLLABORAZIONE PER RAFFINAMENTO ANALISI CALCISTICA.
 
@@ -209,7 +208,7 @@ Restituisci SOLO l'oggetto JSON raffinato.
 
 const openRouterSystemPrompt = "Sei un esperto LLM (Mistral) specializzato nell'analisi calcistica e nel raffinamento collaborativo di dati JSON strutturati. Il tuo compito è migliorare la precisione, la profondità e la completezza di un'analisi JSON fornita da un altro LLM, tenendo in forte considerazione eventuali dati statistici API referenziati. Devi restituire un oggetto JSON completo che mantenga la struttura originale, applicando i tuoi miglioramenti a ciascun campo. La tua risposta deve essere esclusivamente l'oggetto JSON raffinato.";
 
-const isEmpty = (value) => {
+const checkEmpty = (value) => {
   if (value === null || value === undefined) return true;
   if (typeof value === 'string' && value.trim() === "") return true;
   if (Array.isArray(value) && value.length === 0) return true;
@@ -273,7 +272,7 @@ export const getMatchPrediction = async (matchInput) => {
   console.log('🔧 Inizializzazione GoogleGenerativeAI...');
   const ai = new GoogleGenerativeAI(process.env.API_KEY);
   
-  const geminiPrompt = constructGeminiPrompt(matchInput, externalSportsData);
+  const geminiPrompt = buildGeminiPrompt(matchInput, externalSportsData);
   console.log(`Lunghezza prompt Gemini: ${geminiPrompt.length} caratteri.`);
 
   const modelConfig = {
@@ -394,7 +393,7 @@ export const getMatchPrediction = async (matchInput) => {
     if (parsedGeminiData && OPENROUTER_API_KEY && OPENROUTER_MODEL_NAME && callOpenRouterLLM) {
         console.log("Tentativo di raffinamento collaborativo con OpenRouter (Mistral)...");
         try {
-            const refinementPrompt = constructCollaborationRefinementPrompt(parsedGeminiData);
+            const refinementPrompt = buildRefinementPrompt(parsedGeminiData);
             const openRouterResponseText = await callOpenRouterLLM(
                 OPENROUTER_MODEL_NAME,
                 refinementPrompt,
@@ -422,7 +421,7 @@ export const getMatchPrediction = async (matchInput) => {
                         for (const key in tempRefinedData) {
                             if (Object.prototype.hasOwnProperty.call(mistralParsedData, key)) {
                                 const mistralValue = mistralParsedData[key];
-                                if (!isEmpty(mistralValue)) {
+                                if (!checkEmpty(mistralValue)) {
                                     tempRefinedData[key] = mistralValue;
                                     if (JSON.stringify(mistralValue) !== JSON.stringify(parsedGeminiData[key])) {
                                       fieldsRefinedCount++;
@@ -478,401 +477,5 @@ export const getMatchPrediction = async (matchInput) => {
         }
     }
     throw new Error(finalErrorMessage);
-  }
-};
-
-const formatSportsApiDataForPrompt = (sportsData, homeTeamNameInput, awayTeamNameInput) => {
-  if (!sportsData || !sportsData.matchData) {
-    return "Nessun dato statistico dettagliato fornito dall'API sportiva esterna per questa partita. Basa l'analisi su conoscenze generali.";
-  }
-
-  const md = sportsData.matchData;
-  let promptData = "\nDATI STATISTICI DETTAGLIATI FORNITI DA API ESTERNA:\n";
-  
-  promptData += `Partita: ${md.homeTeamStats?.teamName || homeTeamNameInput} vs ${md.awayTeamStats?.teamName || awayTeamNameInput}\n`;
-  if (md.leagueName) promptData += `Lega: ${md.leagueName}`;
-  if (md.seasonYear) promptData += `, Stagione: ${md.seasonYear}\n`;
-  if (md.stadium) promptData += `Stadio: ${md.stadium}\n`;
-  if (md.referee) promptData += `Arbitro: ${md.referee}\n`;
-  
-  const formatTeamStats = (stats, teamNameIfMissing) => {
-    if (!stats) return `  Statistiche per ${teamNameIfMissing} non disponibili.\n`;
-    let teamStr = `Squadra: ${stats.teamName || teamNameIfMissing} (ID: ${stats.teamId || 'N/A'})\n`;
-    if (stats.leagueSeason?.leagueName) teamStr += `  - Lega: ${stats.leagueSeason.leagueName} (${stats.leagueSeason.seasonYear})\n`;
-    if (stats.form) teamStr += `  - Forma Recente: ${stats.form}\n`;
-    if (stats.fixturesPlayed) teamStr += `  - Partite Giocate: ${stats.fixturesPlayed}\n`;
-    if (stats.wins) teamStr += `  - Vittorie: ${stats.wins}\n`;
-    if (stats.draws) teamStr += `  - Pareggi: ${stats.draws}\n`;
-    if (stats.loses) teamStr += `  - Sconfitte: ${stats.loses}\n`;
-    if (stats.goalsFor?.total !== null && stats.goalsFor?.total !== undefined) teamStr += `  - Gol Fatti: ${stats.goalsFor.total} (Media: ${stats.goalsFor.average || 'N/A'})\n`;
-    if (stats.goalsAgainst?.total !== null && stats.goalsAgainst?.total !== undefined) teamStr += `  - Gol Subiti: ${stats.goalsAgainst.total} (Media: ${stats.goalsAgainst.average || 'N/A'})\n`;
-    if (stats.cleanSheets) teamStr += `  - Clean Sheets: ${stats.cleanSheets}\n`;
-    if (stats.failedToScore) teamStr += `  - Partite Senza Segnare: ${stats.failedToScore}\n`;
-    return teamStr;
-  };
-
-  promptData += "\nStatistiche Squadra Casa:\n" + formatTeamStats(md.homeTeamStats, homeTeamNameInput);
-  promptData += "\nStatistiche Squadra Ospite:\n" + formatTeamStats(md.awayTeamStats, awayTeamNameInput);
-
-  if (md.headToHead) {
-    const h2h = md.headToHead;
-    promptData += `\nScontri Diretti (H2H) Recenti:\n`;
-    promptData += `  - Partite Totali: ${h2h.totalMatches}\n`;
-    promptData += `  - Vittorie ${md.homeTeamStats?.teamName || homeTeamNameInput}: ${h2h.homeTeamWinsInH2H}\n`;
-    promptData += `  - Vittorie ${md.awayTeamStats?.teamName || awayTeamNameInput}: ${h2h.awayTeamWinsInH2H}\n`;
-    promptData += `  - Pareggi: ${h2h.drawsInH2H}\n`;
-    if(h2h.averageGoalsInH2H) promptData += `  - Media Gol per Partita: ${h2h.averageGoalsInH2H.toFixed(2)}\n`;
-    promptData += `  - Ultimi Incontri:\n`;
-    h2h.lastMeetings.slice(0, 5).forEach(m => {
-      promptData += `    - ${m.date}: ${m.homeTeamName} ${m.score} ${m.awayTeamName} (Vincitore: ${m.winner || 'Pareggio'})${m.leagueName ? ` [${m.leagueName}]` : ''}\n`;
-    });
-  }
-  
-  promptData += "\nFINE DATI API ESTERNA.\n";
-  return promptData;
-};
-
-const constructGeminiPrompt = (matchInput, externalApiData) => {
-  const dateInstruction = matchInput.matchDate
-    ? `DATA SPECIFICA FORNITA: '${matchInput.matchDate}'. Dai priorità assoluta a trovare la partita ufficiale disputata in questa data.`
-    : `Identifica la prossima partita ufficiale in calendario tra le due squadre.`;
-
-  const competitionContext = matchInput.league && (matchInput.league.toLowerCase().includes('champions') || matchInput.league.toLowerCase().includes('europa') || matchInput.league.toLowerCase().includes('conference'))
-    ? `Trattandosi di un torneo europeo (${matchInput.league}), considera che potrebbe non esserci uno storico significativo di scontri diretti.`
-    : `Considera gli scontri diretti storici se disponibili.`;
-  
-  const externalApiDataSection = formatSportsApiDataForPrompt(externalApiData, matchInput.homeTeam, matchInput.awayTeam);
-
-  return `
-Sei BrainTipster, un analista calcistico esperto. Fornisci un'analisi dettagliata per questa partita.
-
-PARTITA DA ANALIZZARE:
-Squadra Casa: ${matchInput.homeTeam}
-Squadra Ospite: ${matchInput.awayTeam}
-Competizione: ${matchInput.league || 'Non specificato'}
-Data: ${matchInput.matchDate || 'Non fornita'}
-
-${dateInstruction}
-${competitionContext}
-
-${externalApiDataSection}
-
-Fornisci un'analisi completa in formato JSON con la seguente struttura:
-
-{
-  "predictions": {
-    "partitaIdentificata": "Descrizione della partita identificata",
-    "fontiRicercaWeb": [],
-    "externalApiDataUsed": ${!!externalApiData},
-    "squadraVincente": {
-      "squadra": "Nome squadra favorita",
-      "probabilita": "XX%"
-    },
-    "risultatoFinaleProbabilita": {
-      "vittoriaCasa": "XX%",
-      "pareggio": "XX%",
-      "vittoriaOspite": "XX%"
-    },
-    "overUnderGoals": [
-      {"linea": "Over 0.5", "probabilita": "XX%"},
-      {"linea": "Over 1.5", "probabilita": "XX%"},
-      {"linea": "Over 2.5", "probabilita": "XX%"},
-      {"linea": "Under 2.5", "probabilita": "XX%"},
-      {"linea": "Under 3.5", "probabilita": "XX%"}
-    ],
-    "risultatiEsatti": [
-      {"risultato": "1-0", "probabilita": "XX%"},
-      {"risultato": "2-1", "probabilita": "XX%"},
-      {"risultato": "1-1", "probabilita": "XX%"}
-    ],
-    "probabiliMarcatori": [
-      {"nomeGiocatore": "Nome giocatore", "probabilitaGol": "Alta/Media/Bassa"}
-    ],
-    "statisticheMediePreviste": {
-      "falliTotali": "XX-XX falli",
-      "cornerTotali": "XX-XX corner",
-      "cartelliniGialliTotali": "XX-XX cartellini gialli",
-      "cartelliniRossiPossibili": "Bassa/Media/Alta probabilità",
-      "tiriTotali": "XX-XX tiri",
-      "tiriInPortaTotali": "XX-XX tiri in porta",
-      "parateTotaliPortieri": "XX-XX parate"
-    },
-    "consiglioScommessaExpert": [
-      {
-        "mercato": "Esito Finale",
-        "selezione": "1X2",
-        "lineaConsigliata": "",
-        "valoreFiducia": "Alta/Media/Bassa",
-        "statisticaCorrelata": {
-          "nomeStatistica": "Forma casa",
-          "valoreStatistica": "Ottima"
-        },
-        "motivazioneBreve": "Motivazione basata sull'analisi"
-      }
-    ],
-    "ragionamentoAnalitico": "Analisi dettagliata della partita con considerazioni tattiche, forma delle squadre, statistiche storiche e fattori che influenzano il risultato."
-  }
-}
-
-IMPORTANTE: Rispondi SOLO con il JSON valido, senza markdown o testo aggiuntivo.
-`;
-};
-
-const constructCollaborationRefinementPrompt = (geminiDraftAnalysis) => {
-  return `
-Sei un esperto analista calcistico. Ricevi questa analisi preliminare e devi raffinarla e migliorarla mantenendo la stessa struttura JSON.
-
-ANALISI DA RAFFINARE:
-${JSON.stringify(geminiDraftAnalysis, null, 2)}
-
-Il tuo compito:
-1. Mantieni ESATTAMENTE la stessa struttura JSON
-2. Migliora la precisione delle percentuali
-3. Aggiungi dettagli al ragionamento analitico
-4. Verifica la coerenza interna
-5. Completa eventuali campi mancanti
-
-Rispondi SOLO con l'oggetto JSON raffinato, senza markdown.
-`;
-};
-
-const openRouterSystemPrompt = "Sei un esperto analista calcistico specializzato nel raffinamento di analisi JSON. Mantieni la struttura originale e migliora precisione e dettagli.";
-
-const isEmpty = (value) => {
-  if (value === null || value === undefined) return true;
-  if (typeof value === 'string' && value.trim() === "") return true;
-  if (Array.isArray(value) && value.length === 0) return true;
-  if (typeof value === 'object' && Object.keys(value).length === 0 && !(value instanceof Date)) return true;
-  return false;
-};
-
-export const getMatchPrediction = async (matchInput) => {
-  console.log(`🚀 Inizio analisi: ${matchInput.homeTeam} vs ${matchInput.awayTeam}`);
-  
-  let externalSportsData = null;
-  let sportsApiErrorMessage = undefined;
-  let externalApiDataUsedInitially = false;
-
-  // Tentativo di recupero dati Sports API (se disponibile)
-  const SPORTS_API_KEY = process.env.SPORTS_API_KEY;
-  if (SPORTS_API_KEY && fetchExternalMatchData) {
-    try {
-      console.log("🏈 Tentativo recupero dati Sports API...");
-      externalSportsData = await fetchExternalMatchData(matchInput, SPORTS_API_KEY);
-      
-      if (externalSportsData && externalSportsData.matchData && 
-          (externalSportsData.matchData.homeTeamStats?.fixturesPlayed !== undefined || 
-           externalSportsData.matchData.awayTeamStats?.fixturesPlayed !== undefined ||
-           externalSportsData.matchData.headToHead?.totalMatches !== undefined)) {
-        console.log("✅ Dati Sports API recuperati con successo");
-        externalApiDataUsedInitially = true;
-      } else {
-        sportsApiErrorMessage = "Dati API Sports non trovati o insufficienti per questa partita.";
-        console.warn("⚠️ " + sportsApiErrorMessage);
-      }
-    } catch (sportsError) {
-      console.error("❌ Errore Sports API:", sportsError);
-      sportsApiErrorMessage = sportsError.message;
-      externalSportsData = null;
-    }
-  } else {
-    if (!SPORTS_API_KEY) {
-      sportsApiErrorMessage = "SPORTS_API_KEY non configurata nel backend.";
-      console.warn("⚠️ " + sportsApiErrorMessage);
-    }
-    if (!fetchExternalMatchData) {
-      console.warn("⚠️ Servizio Sports API non disponibile");
-    }
-  }
-
-  // Costruzione prompt e configurazione modello
-  const geminiPrompt = constructGeminiPrompt(matchInput, externalSportsData);
-  console.log(`📝 Lunghezza prompt Gemini: ${geminiPrompt.length} caratteri`);
-
-  // Configurazione modello Gemini corretto
-  let model;
-  try {
-    model = genAI.getGenerativeModel({
-      model: GEMINI_MODEL_NAME,
-      generationConfig: {
-        temperature: 0.1,
-        topP: 0.8,
-        topK: 30,
-        maxOutputTokens: 4096,
-      },
-      safetySettings: [
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      ],
-    });
-    
-    console.log('✅ Modello Gemini configurato:', {
-      modelExists: !!model,
-      hasGenerateContent: !!(model && model.generateContent)
-    });
-    
-  } catch (modelError) {
-    console.error('❌ Errore configurazione modello:', modelError);
-    throw new Error(`Errore configurazione modello Gemini: ${modelError.message}`);
-  }
-
-  let geminiResultText;
-  let parsedGeminiData;
-  let finalRefinedData;
-  let geminiSearchSources = [];
-  let refinementIssueMessage = undefined;
-
-  try {
-    console.log("📡 Invio richiesta a Gemini...");
-    
-    // Chiamata corretta all'API Gemini
-    const geminiResponse = await model.generateContent(geminiPrompt);
-    const response = await geminiResponse.response;
-    geminiResultText = response.text();
-    
-    console.log("📨 Risposta ricevuta da Gemini");
-    console.log(`📄 Lunghezza risposta: ${geminiResultText?.length || 0} caratteri`);
-
-    // Parsing della risposta JSON
-    if (geminiResultText && geminiResultText.trim()) {
-      try {
-        let jsonStr = geminiResultText.trim();
-        
-        // Rimuovi markdown se presente
-        const fencedJsonRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
-        const fencedMatch = jsonStr.match(fencedJsonRegex);
-
-        if (fencedMatch && fencedMatch[1]) {
-          jsonStr = fencedMatch[1].trim();
-        } else {
-          // Trova primo { e ultimo }
-          const firstBrace = jsonStr.indexOf('{');
-          const lastBrace = jsonStr.lastIndexOf('}');
-          if (firstBrace !== -1 && lastBrace > firstBrace) {
-            jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-          }
-        }
-        
-        if (jsonStr) {
-          const apiResponse = JSON.parse(jsonStr);
-          if (apiResponse && apiResponse.predictions) {
-            parsedGeminiData = apiResponse.predictions;
-          } else if (apiResponse.partitaIdentificata || apiResponse.squadraVincente) {
-            parsedGeminiData = apiResponse;
-          }
-        }
-
-        if (parsedGeminiData) {
-          parsedGeminiData.externalApiDataUsed = externalApiDataUsedInitially;
-          console.log("✅ JSON da Gemini parsato con successo");
-        }
-        
-      } catch (parseError) {
-        console.error("❌ Errore parsing JSON da Gemini:", parseError);
-        console.log("📄 Testo raw (primi 500 char):", geminiResultText.substring(0, 500));
-      }
-    }
-
-    if (!parsedGeminiData) {
-      throw new Error("Gemini non ha fornito una risposta JSON valida");
-    }
-
-    finalRefinedData = parsedGeminiData;
-
-    // Tentativo di raffinamento con OpenRouter (se disponibile)
-    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-    
-    if (parsedGeminiData && OPENROUTER_API_KEY && callOpenRouterLLM) {
-      console.log("🤖 Tentativo raffinamento con OpenRouter...");
-      try {
-        const refinementPrompt = constructCollaborationRefinementPrompt(parsedGeminiData);
-        const openRouterResponseText = await callOpenRouterLLM(
-          OPENROUTER_MODEL_NAME,
-          refinementPrompt,
-          OPENROUTER_API_KEY,
-          openRouterSystemPrompt
-        );
-        
-        if (openRouterResponseText && openRouterResponseText.trim()) {
-          try {
-            let mistralJsonStr = openRouterResponseText.trim();
-            
-            // Rimuovi markdown
-            const fencedJsonRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
-            const fencedMatch = mistralJsonStr.match(fencedJsonRegex);
-            if (fencedMatch && fencedMatch[1]) {
-              mistralJsonStr = fencedMatch[1].trim();
-            }
-            
-            if (mistralJsonStr.startsWith("{") && mistralJsonStr.endsWith("}")) {
-              const mistralParsedData = JSON.parse(mistralJsonStr);
-              const tempRefinedData = { ...parsedGeminiData };
-              let fieldsRefinedCount = 0;
-              
-              for (const key in tempRefinedData) {
-                if (Object.prototype.hasOwnProperty.call(mistralParsedData, key)) {
-                  const mistralValue = mistralParsedData[key];
-                  if (!isEmpty(mistralValue)) {
-                    tempRefinedData[key] = mistralValue;
-                    if (JSON.stringify(mistralValue) !== JSON.stringify(parsedGeminiData[key])) {
-                      fieldsRefinedCount++;
-                    }
-                  }
-                }
-              }
-              
-              finalRefinedData = tempRefinedData;
-              finalRefinedData.externalApiDataUsed = externalApiDataUsedInitially;
-              
-              if (fieldsRefinedCount > 0) {
-                refinementIssueMessage = `✅ Analisi raffinata con successo (${fieldsRefinedCount} campi migliorati)`;
-                console.log(refinementIssueMessage);
-              }
-            }
-          } catch (parseError) {
-            refinementIssueMessage = "⚠️ Errore nel parsing della risposta OpenRouter";
-            console.warn(refinementIssueMessage);
-          }
-        }
-      } catch (openRouterError) {
-        refinementIssueMessage = "⚠️ Errore comunicazione con OpenRouter";
-        console.warn(refinementIssueMessage, openRouterError.message);
-      }
-    } else {
-      if (!OPENROUTER_API_KEY) {
-        refinementIssueMessage = "⚠️ OpenRouter non configurato (OPENROUTER_API_KEY mancante)";
-      } else if (!callOpenRouterLLM) {
-        refinementIssueMessage = "⚠️ Servizio OpenRouter non disponibile";
-      }
-      console.warn(refinementIssueMessage);
-    }
-
-    console.log("🎯 Analisi completata con successo");
-    
-    return { 
-      parsed: finalRefinedData, 
-      rawText: geminiResultText, 
-      searchSources: finalRefinedData?.fontiRicercaWeb || geminiSearchSources, 
-      externalSportsData: externalSportsData, 
-      refinementIssue: refinementIssueMessage,
-      sportsApiError: sportsApiErrorMessage 
-    };
-
-  } catch (error) {
-    console.error('❌ Errore nel processo di generazione del pronostico:', error);
-    
-    let finalErrorMessage = 'Errore sconosciuto durante la generazione del pronostico.';
-    if (error instanceof Error) {
-      finalErrorMessage = error.message;
-      if (error.message.includes("API key not valid")) {
-        finalErrorMessage = `Chiave API Gemini non valida. Verifica la configurazione.`;
-      } else if (error.message.includes("quota")) {
-        finalErrorMessage = `Quota API Gemini esaurita. Riprova più tardi.`;
-      }
-    }
-    
-    throw new Error(`Errore API Gemini: ${finalErrorMessage}`);
   }
 };
