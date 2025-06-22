@@ -1,144 +1,272 @@
-// Usa 'import' per ESM se il tuo package.json ha "type": "module" o usi .mjs
-// Altrimenti, usa 'require' per CommonJS
-// Per semplicità e coerenza con @google/genai, assumiamo un ambiente ESM.
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv'; // Per caricare variabili d'ambiente da .env
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// Import servizi
 import { getMatchPrediction } from './services/geminiService.js';
 
-// Carica variabili d'ambiente da .env (opzionale, ma buona pratica)
-dotenv.config();
-
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-// Per ES modules, dobbiamo ricreare __dirname
+// Configurazione ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware
-app.use(cors()); // Abilita CORS per tutte le rotte
-app.use(express.json()); // Per parsare il body delle richieste JSON
+// Carica variabili d'ambiente
+dotenv.config();
 
-// Serve static files (frontend built) in produzione
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'public')));
-}
+const app = express();
 
-// NUOVO: Global request logger - METTERE PRIMA DI TUTTE LE ALTRE ROTTE E MIDDLEWARE SPECIFICI DI ROTTA
+// Porta dinamica per Railway (Railway assegna automaticamente la porta)
+const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '0.0.0.0';
+
+// Middleware di sicurezza
+app.use(helmet({
+    contentSecurityPolicy: false, // Per permettere il frontend
+    crossOriginEmbedderPolicy: false
+}));
+
+// Configurazione CORS per Railway
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://braintipster.vercel.app',
+    process.env.FRONTEND_URL,
+    process.env.RAILWAY_STATIC_URL
+].filter(Boolean);
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Permetti richieste senza origin (come app mobile o Postman)
+        if (!origin) return callback(null, true);
+        
+        // Permetti tutte le origin in development
+        if (process.env.NODE_ENV === 'development') {
+            return callback(null, true);
+        }
+        
+        // In produzione, controlla la whitelist
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        
+        // Permetti domini Railway
+        if (origin.includes('railway.app')) {
+            return callback(null, true);
+        }
+        
+        callback(new Error('Non autorizzato da CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-KEY']
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minuti
+    max: process.env.NODE_ENV === 'production' ? 100 : 1000, // Richieste per IP
+    message: 'Troppe richieste da questo IP, riprova più tardi.',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use(limiter);
+
+// Middleware per parsing JSON
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Middleware per logging delle richieste
 app.use((req, res, next) => {
-  console.log(`[Railway INCOMING] Timestamp: ${new Date().toISOString()}, Method: ${req.method}, URL: ${req.originalUrl}, IP: ${req.ip}`);
-  next();
+    const timestamp = new Date().toISOString();
+    console.log(`${timestamp} - ${req.method} ${req.path} - IP: ${req.ip}`);
+    next();
 });
 
-// Middleware per la verifica dell'API Key
-const apiKeyAuth = (req, res, next) => {
-  const backendApiKey = process.env.FRONTEND_API_KEY;
-  if (backendApiKey) { // Verifica solo se una chiave API è configurata nel backend
-    const frontendApiKey = req.headers['x-api-key'];
-    if (!frontendApiKey) {
-      return res.status(401).json({ message: "Chiave API mancante nell'header X-API-KEY." });
+// Middleware di autenticazione per le API protette
+const authenticateAPI = (req, res, next) => {
+    const providedKey = req.headers['x-api-key'];
+    const expectedKey = process.env.FRONTEND_API_KEY;
+    
+    // Se non è configurata una chiave API, salta l'autenticazione (per development)
+    if (!expectedKey) {
+        console.warn('⚠️ FRONTEND_API_KEY non configurata - autenticazione disabilitata');
+        return next();
     }
-    if (frontendApiKey !== backendApiKey) {
-      return res.status(401).json({ message: "Chiave API non valida." });
+    
+    if (!providedKey) {
+        return res.status(401).json({
+            error: 'API key richiesta',
+            message: 'Includi X-API-KEY nell\'header della richiesta'
+        });
     }
-  }
-  next();
+    
+    if (providedKey !== expectedKey) {
+        return res.status(403).json({
+            error: 'API key non valida',
+            message: 'L\'API key fornita non è autorizzata'
+        });
+    }
+    
+    next();
 };
 
-// Helper function to notify n8n webhook
-async function notifyN8n(predictionData) {
-  const webhookUrl = process.env.N8N_RESULTS_WEBHOOK_URL;
-  if (webhookUrl) {
-    console.log(`Attempting to send prediction data to n8n webhook: ${webhookUrl}`);
-    try {
-      // fetch is global in Node.js v18+
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(predictionData),
-      });
-      if (!response.ok) {
-        const responseBody = await response.text();
-        console.error(`Error sending data to n8n webhook: ${response.status} ${response.statusText}. Response: ${responseBody}`);
-      } else {
-        console.log('Prediction data successfully sent to n8n webhook.');
-      }
-    } catch (error) {
-      console.error('Failed to send data to n8n webhook due to a network or setup error:', error);
-    }
-  }
-}
+// Servi file statici del frontend (se buildati in public/)
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Endpoint di health check (solitamente non protetto da API Key)
+// ===== ROUTES =====
+
+// Health check (senza autenticazione)
 app.get('/health', (req, res) => {
-    console.log('[Railway ROUTE] /health endpoint hit'); // Log specifico per la rotta
-    res.status(200).json({ 
-      status: 'UP', 
-      message: 'BrainTipster Backend is running.',
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development'
+    const healthData = {
+        status: 'UP',
+        message: 'BrainTipster Backend is running.',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'unknown',
+        version: '1.0.0',
+        port: PORT,
+        features: {
+            geminiAI: !!process.env.API_KEY,
+            sportsAPI: !!process.env.SPORTS_API_KEY,
+            openRouter: !!process.env.OPENROUTER_API_KEY && process.env.DISABLE_OPENROUTER !== 'true',
+            authentication: !!process.env.FRONTEND_API_KEY
+        }
+    };
+    
+    res.json(healthData);
+});
+
+// API per predizioni (con autenticazione)
+app.post('/api/predict', authenticateAPI, async (req, res) => {
+    try {
+        console.log('🚀 Richiesta predizione ricevuta:', req.body);
+        
+        const { homeTeam, awayTeam, league, matchDate } = req.body;
+        
+        // Validazione input
+        if (!homeTeam || !awayTeam) {
+            return res.status(400).json({
+                error: 'Dati mancanti',
+                message: 'homeTeam e awayTeam sono richiesti',
+                required: ['homeTeam', 'awayTeam'],
+                optional: ['league', 'matchDate']
+            });
+        }
+        
+        // Validazione lunghezza
+        if (homeTeam.length > 50 || awayTeam.length > 50) {
+            return res.status(400).json({
+                error: 'Input troppo lungo',
+                message: 'I nomi delle squadre devono essere sotto i 50 caratteri'
+            });
+        }
+        
+        console.log(`🏆 Elaborazione: ${homeTeam} vs ${awayTeam} (${league || 'Campionato non specificato'})`);
+        
+        // Chiamata al servizio di predizione
+        const startTime = Date.now();
+        const result = await getMatchPrediction(homeTeam, awayTeam, league, matchDate);
+        const processingTime = Date.now() - startTime;
+        
+        console.log(`✅ Predizione completata in ${processingTime}ms`);
+        
+        // Aggiungi metadati di performance
+        if (result.parsed && result.parsed._metadata) {
+            result.parsed._metadata.processingTimeMs = processingTime;
+            result.parsed._metadata.requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+        
+        res.json(result);
+        
+    } catch (error) {
+        console.error('❌ Errore nella predizione:', error);
+        
+        res.status(500).json({
+            error: 'Errore interno del server',
+            message: 'Si è verificato un errore durante l\'elaborazione della predizione',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Catch-all per il frontend (SPA routing)
+app.get('*', (req, res) => {
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    
+    // Se index.html esiste, servilo (per SPA)
+    if (require('fs').existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        // Altrimenti mostra una pagina di benvenuto
+        res.status(404).json({
+            message: 'BrainTipster Backend API',
+            status: 'running',
+            availableEndpoints: {
+                health: 'GET /health',
+                predict: 'POST /api/predict'
+            },
+            documentation: 'Controlla la documentazione per maggiori dettagli'
+        });
+    }
+});
+
+// Gestione errori globale
+app.use((error, req, res, next) => {
+    console.error('❌ Errore non gestito:', error);
+    
+    res.status(500).json({
+        error: 'Errore interno del server',
+        message: 'Si è verificato un errore imprevisto',
+        timestamp: new Date().toISOString()
     });
 });
 
-// Rotta API per le predizioni, protetta da API Key Auth
-app.post('/api/predict', apiKeyAuth, async (req, res) => {
-  console.log('[Railway ROUTE] /api/predict endpoint hit'); // Log specifico per la rotta
-  const matchInput = req.body;
-
-  // Validazione base dell'input
-  if (!matchInput || !matchInput.homeTeam || !matchInput.awayTeam) {
-    return res.status(400).json({ message: "Input non valido: 'homeTeam' e 'awayTeam' sono obbligatori." });
-  }
-
-  try {
-    // Verifica che le chiavi API essenziali siano configurate nel backend
-    if (!process.env.API_KEY) {
-      console.error("API_KEY per Gemini non configurata nel backend.");
-      return res.status(500).json({ message: "Errore di configurazione del server: API_KEY Gemini mancante." });
-    }
-    // Altre chiavi (SPORTS_API_KEY, OPENROUTER_API_KEY) sono verificate all'interno dei rispettivi servizi.
-
-    const predictionResponse = await getMatchPrediction(matchInput);
-    res.json(predictionResponse);
-
-    // After successfully sending response to client, try to notify n8n (fire and forget)
-    if (process.env.N8N_RESULTS_WEBHOOK_URL) {
-      notifyN8n(predictionResponse).catch(err => {
-        // Log errors from the async notification without affecting the client response
-        console.error("Background task to notify n8n failed:", err);
-      });
-    }
-
-  } catch (error) {
-    console.error('Errore nella gestione della richiesta /api/predict:', error);
-    res.status(500).json({ message: error.message || 'Errore interno del server durante l\'elaborazione della predizione.' });
-  }
+// Avvio del server
+const server = app.listen(PORT, HOST, () => {
+    console.log('\n🧠 ================================');
+    console.log('   BrainTipster Backend');
+    console.log('================================');
+    console.log(`🚀 Server in ascolto su: ${HOST}:${PORT}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📡 Health check: http://${HOST}:${PORT}/health`);
+    console.log(`🎯 API endpoint: http://${HOST}:${PORT}/api/predict`);
+    console.log('\n🔧 Configurazione:');
+    console.log(`   📊 Gemini AI: ${process.env.API_KEY ? '✅ Configurato' : '❌ MANCANTE (CRITICO!)'}`);
+    console.log(`   ⚽ Sports API: ${process.env.SPORTS_API_KEY ? '✅ Presente' : '⚠️ NON PRESENTE'}`);
+    console.log(`   🤖 OpenRouter: ${process.env.OPENROUTER_API_KEY && process.env.DISABLE_OPENROUTER !== 'true' ? '✅ Attivo' : '⚠️ Disabilitato'}`);
+    console.log(`   🔐 Auth Frontend: ${process.env.FRONTEND_API_KEY ? '✅ Attiva' : '⚠️ DISATTIVATA'}`);
+    console.log('================================\n');
 });
 
-// Serve frontend in produzione (catch-all route)
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  });
-}
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`BrainTipster Backend in ascolto sulla porta ${PORT} sull'host 0.0.0.0`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Endpoint API disponibile: POST /api/predict`);
-  console.log(`Health check disponibile: GET /health`);
-  if (process.env.NODE_ENV === 'production') {
-    console.log(`Frontend served from: /public`);
-  }
-  console.log('Variabili d\'ambiente caricate (verifica):');
-  console.log(`  API_KEY (Gemini): ${process.env.API_KEY ? 'Presente' : 'NON PRESENTE (CRITICO!)'}`);
-  console.log(`  SPORTS_API_KEY: ${process.env.SPORTS_API_KEY ? 'Presente' : 'NON PRESENTE (Analisi degradata)'}`);
-  console.log(`  OPENROUTER_API_KEY: ${process.env.OPENROUTER_API_KEY ? 'Presente' : 'NON PRESENTE (Raffinamento disabilitato)'}`);
-  console.log(`  N8N_RESULTS_WEBHOOK_URL: ${process.env.N8N_RESULTS_WEBHOOK_URL ? process.env.N8N_RESULTS_WEBHOOK_URL : 'NON PRESENTE (Invio risultati a n8n disabilitato)'}`);
-  console.log(`  FRONTEND_API_KEY: ${process.env.FRONTEND_API_KEY ? 'Configurata (Autenticazione frontend ATTIVA)' : 'NON PRESENTE (Autenticazione frontend DISATTIVATA)'}`);
+// Gestione graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('🛑 SIGTERM ricevuto, arresto graceful del server...');
+    server.close(() => {
+        console.log('✅ Server chiuso correttamente');
+        process.exit(0);
+    });
 });
+
+process.on('SIGINT', () => {
+    console.log('🛑 SIGINT ricevuto, arresto graceful del server...');
+    server.close(() => {
+        console.log('✅ Server chiuso correttamente');
+        process.exit(0);
+    });
+});
+
+// Gestione errori non catturati
+process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+});
+
+export default app;
