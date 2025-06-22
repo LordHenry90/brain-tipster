@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Header } from './components/Header';
 import { MatchInputForm } from './components/MatchInputForm';
@@ -10,31 +9,14 @@ import type { MatchInput, GeminiPredictionResponse } from './types';
 // --- CONFIGURAZIONE URL BACKEND ---
 let BACKEND_API_URL: string;
 
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-  // URL per lo sviluppo locale
-  BACKEND_API_URL = 'http://localhost:3001/api/predict';
-  console.log('Running in local development mode. Backend URL:', BACKEND_API_URL);
+if (import.meta.env.DEV) {
+  // In development, use Vite proxy (definito in vite.config.ts)
+  BACKEND_API_URL = '/api/predict';
+  console.log('Running in development mode. Using Vite proxy for backend.');
 } else {
-  // **** IMPORTANTE PER LA PRODUZIONE (es. Railway, Cloud Run, ecc.) ****
-  // SOSTITUISCI LA STRINGA QUI SOTTO con l'URL completo del tuo servizio backend deployato.
-  // Esempio per Railway: 'https://braintipster-backend-12345.up.railway.app/api/predict'
-  // Esempio per Cloud Run: 'https://braintipster-backend-abcdef123-uc.a.run.app/api/predict'
-  // 
-  // ATTUALMENTE È UN PLACEHOLDER GENERICO - DEVE ESSERE CAMBIATO!
-  BACKEND_API_URL = 'https://brain-tipster-production.up.railway.app/api/predict'; 
-  console.log('Running in production-like mode. Backend URL:', BACKEND_API_URL);
-  
-  if (BACKEND_API_URL.includes('IL_TUO_URL_BACKEND_DEPLOYATO_SU_RAILWAY_O_ALTRO') || 
-      BACKEND_API_URL.includes('YOUR_CLOUD_RUN_BACKEND_URL')) { // Controllo per entrambi i placeholder comuni
-    console.warn(
-        'ATTENZIONE CRITICA: BACKEND_API_URL in App.tsx è ancora un placeholder generico! ' +
-        'Devi aggiornarlo con l\'URL effettivo del tuo backend deployato su Railway (o altra piattaforma) ' +
-        'affinché l\'applicazione funzioni correttamente in produzione.'
-    );
-    // Potresti anche voler mostrare un avviso visibile all'utente o bloccare la funzionalità
-    // se questo non è configurato, ma per ora un log aggressivo è un buon inizio.
-    // alert("Configurazione backend mancante! L'applicazione non funzionerà correttamente. Contatta l'amministratore.");
-  }
+  // In production, il backend serve il frontend, quindi usiamo URL relative
+  BACKEND_API_URL = '/api/predict';
+  console.log('Running in production mode. Using relative URL for backend.');
 }
 // --- FINE CONFIGURAZIONE URL BACKEND ---
 
@@ -51,7 +33,6 @@ if (CLIENT_SIDE_API_KEY === 'YOUR_SECRET_FRONTEND_API_KEY_HERE') {
 }
 // --- FINE CONFIGURAZIONE API KEY FRONTEND ---
 
-
 const App: React.FC = () => {
   const [predictionResponse, setPredictionResponse] = useState<GeminiPredictionResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -67,15 +48,6 @@ const App: React.FC = () => {
     setRefinementIssue(null); 
     setSportsApiError(null);
 
-    // Controlla se l'URL del backend è ancora il placeholder in un ambiente di produzione
-    if ((window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') &&
-        (BACKEND_API_URL.includes('IL_TUO_URL_BACKEND_DEPLOYATO_SU_RAILWAY_O_ALTRO') || 
-         BACKEND_API_URL.includes('YOUR_CLOUD_RUN_BACKEND_URL'))) {
-      setError("Errore di configurazione critico: l'URL del servizio backend non è stato impostato correttamente per l'ambiente di produzione. Impossibile contattare il server.");
-      setIsLoading(false);
-      return;
-    }
-
     try {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
@@ -83,10 +55,9 @@ const App: React.FC = () => {
       
       if (CLIENT_SIDE_API_KEY && CLIENT_SIDE_API_KEY !== 'YOUR_SECRET_FRONTEND_API_KEY_HERE') {
         headers['X-API-KEY'] = CLIENT_SIDE_API_KEY;
-      } else if (CLIENT_SIDE_API_KEY === 'YOUR_SECRET_FRONTEND_API_KEY_HERE' && (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
-        console.error('CRITICAL: CLIENT_SIDE_API_KEY is still the placeholder in a non-local environment. Backend authentication will likely fail if enabled.');
+      } else if (CLIENT_SIDE_API_KEY === 'YOUR_SECRET_FRONTEND_API_KEY_HERE' && !import.meta.env.DEV) {
+        console.error('CRITICAL: CLIENT_SIDE_API_KEY is still the placeholder in production. Backend authentication will likely fail if enabled.');
       }
-
 
       const response = await fetch(BACKEND_API_URL, {
         method: 'POST',
@@ -121,10 +92,10 @@ const App: React.FC = () => {
          if (err.message.toLowerCase().includes("failed to fetch")) {
             errorMessage = `Errore di rete (Failed to fetch): Impossibile contattare il server BrainTipster (${BACKEND_API_URL}). 
             Possibili cause:
-            \n- Il server backend non è in esecuzione o non è raggiungibile (verifica l'URL: ${BACKEND_API_URL}).
+            \n- Il server backend non è in esecuzione o non è raggiungibile.
             \n- Problemi di connessione Internet o configurazione di rete (firewall, VPN).
-            \n- Errore CORS se il backend non è configurato correttamente per accettare richieste da questo dominio frontend.
-            \n- Assicurati di aver sostituito il placeholder nell'URL del backend con l'URL corretto del tuo servizio deployato (es. su Railway) e che tale servizio stia eseguendo l'immagine corretta.`;
+            \n- Errore CORS se il backend non è configurato correttamente.
+            \n- Verifica che l'applicazione sia correttamente deployata e in esecuzione.`;
         } else {
             errorMessage = err.message; 
         }
@@ -136,7 +107,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-between bg-transparent text-text-primary selection:bg-brand-primary selection:text-white">
       <Header />
@@ -145,7 +115,6 @@ const App: React.FC = () => {
           Benvenuto in BrainTipster! Inserisci i dettagli della partita per ricevere un pronostico AI avanzato, statistiche dettagliate e consigli di betting.
         </p>
         
-
         <MatchInputForm onSubmit={handleMatchSubmit} isLoading={isLoading} />
         
         <div className="mt-12 w-full"> 

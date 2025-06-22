@@ -4,6 +4,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv'; // Per caricare variabili d'ambiente da .env
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getMatchPrediction } from './services/geminiService.js';
 
 // Carica variabili d'ambiente da .env (opzionale, ma buona pratica)
@@ -12,13 +14,22 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Per ES modules, dobbiamo ricreare __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Middleware
 app.use(cors()); // Abilita CORS per tutte le rotte
 app.use(express.json()); // Per parsare il body delle richieste JSON
 
+// Serve static files (frontend built) in produzione
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'public')));
+}
+
 // NUOVO: Global request logger - METTERE PRIMA DI TUTTE LE ALTRE ROTTE E MIDDLEWARE SPECIFICI DI ROTTA
 app.use((req, res, next) => {
-  console.log(`[CloudRun INCOMING] Timestamp: ${new Date().toISOString()}, Method: ${req.method}, URL: ${req.originalUrl}, IP: ${req.ip}`);
+  console.log(`[Railway INCOMING] Timestamp: ${new Date().toISOString()}, Method: ${req.method}, URL: ${req.originalUrl}, IP: ${req.ip}`);
   next();
 });
 
@@ -65,13 +76,18 @@ async function notifyN8n(predictionData) {
 
 // Endpoint di health check (solitamente non protetto da API Key)
 app.get('/health', (req, res) => {
-    console.log('[CloudRun ROUTE] /health endpoint hit'); // Log specifico per la rotta
-    res.status(200).json({ status: 'UP', message: 'BrainTipster Backend is running.' });
+    console.log('[Railway ROUTE] /health endpoint hit'); // Log specifico per la rotta
+    res.status(200).json({ 
+      status: 'UP', 
+      message: 'BrainTipster Backend is running.',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
+    });
 });
 
 // Rotta API per le predizioni, protetta da API Key Auth
 app.post('/api/predict', apiKeyAuth, async (req, res) => {
-  console.log('[CloudRun ROUTE] /api/predict endpoint hit'); // Log specifico per la rotta
+  console.log('[Railway ROUTE] /api/predict endpoint hit'); // Log specifico per la rotta
   const matchInput = req.body;
 
   // Validazione base dell'input
@@ -104,10 +120,21 @@ app.post('/api/predict', apiKeyAuth, async (req, res) => {
   }
 });
 
+// Serve frontend in produzione (catch-all route)
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  });
+}
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`BrainTipster Backend in ascolto sulla porta ${PORT} sull'host 0.0.0.0`);
-  console.log(`Endpoint API disponibile (localmente): POST http://localhost:${PORT}/api/predict`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Endpoint API disponibile: POST /api/predict`);
+  console.log(`Health check disponibile: GET /health`);
+  if (process.env.NODE_ENV === 'production') {
+    console.log(`Frontend served from: /public`);
+  }
   console.log('Variabili d\'ambiente caricate (verifica):');
   console.log(`  API_KEY (Gemini): ${process.env.API_KEY ? 'Presente' : 'NON PRESENTE (CRITICO!)'}`);
   console.log(`  SPORTS_API_KEY: ${process.env.SPORTS_API_KEY ? 'Presente' : 'NON PRESENTE (Analisi degradata)'}`);
