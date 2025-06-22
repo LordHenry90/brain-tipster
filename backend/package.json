@@ -1,24 +1,35 @@
 {
   "name": "braintipster-backend",
-  "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "BrainTipster Backend API - AI Football Prediction Service",
   "type": "module",
+  "main": "server.js",
   "scripts": {
-    "dev": "node server.js",
     "start": "NODE_ENV=production node server.js",
-    "build": "echo 'Backend build completed'"
+    "dev": "NODE_ENV=development node server.js",
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "dependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "@google/genai": "^1.3.0",
-    "express": "^5.1.0",
+    "express": "^4.18.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.5.0"
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "dotenv": "^16.3.1",
+    "@google/generative-ai": "^0.19.0",
+    "axios": "^1.6.2",
+    "winston": "^3.11.0",
+    "express-validator": "^7.0.1"
   },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "typescript": "~5.7.2",
-    "vite": "^6.2.0"
-  }
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "football",
+    "prediction",
+    "ai",
+    "gemini",
+    "api"
+  ],
+  "author": "BrainTipster",
+  "license": "MIT"
 }

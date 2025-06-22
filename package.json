@@ -5,14 +5,16 @@
   "scripts": {
     "dev": "vite --host localhost --port 5173",
     "dev:backend": "cd backend && npm run dev",
-    "build": "npm run build:try || npm run build:emergency",
+    "build": "npm run build:railway",
+    "build:local": "npm run build:try || npm run build:emergency",
     "build:try": "npm run build:vite && npm run build:copy",
     "build:vite": "vite build --outDir dist --emptyOutDir",
     "build:copy": "node copy-build.js",
     "build:emergency": "node manual-build.js",
-    "build:backend": "cd backend && npm install",
+    "build:railway": "cd backend && npm install --production",
     "start": "cd backend && npm start",
-    "preview": "vite preview --outDir dist"
+    "preview": "vite preview --outDir dist",
+    "postinstall": "cd backend && npm install"
   },
   "dependencies": {
     "react": "^19.1.0",

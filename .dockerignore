@@ -1,0 +1,57 @@
+# Ignora file non necessari per il deploy
+node_modules
+npm-debug.log
+.npm
+.env.local
+.env.development
+.env.test
+coverage
+.nyc_output
+
+# Frontend files (non necessari per backend deploy)
+src/
+public/
+components/
+*.tsx
+*.ts
+vite.config.ts
+tsconfig.json
+index.html
+
+# Build artifacts
+dist/
+build/
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Testing
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Documentation
+README.md
+docs/
+
+# Development scripts
+start.bat
+build.bat
+test-api.bat
+test-api.html
