@@ -1,5 +1,5 @@
 
-import { GoogleGenAI } from "@google/generative-ai";
+import { GoogleGenerativeAI  } from "@google/generative-ai";
 import { GEMINI_MODEL_NAME, OPENROUTER_MODEL_NAME } from '../constants.js';
 import { fetchExternalMatchData } from './sportsApiService.js'; 
 import { callOpenRouterLLM } from './openRouterService.js';
@@ -238,7 +238,7 @@ export const getMatchPrediction = async (matchInput) => {
     console.warn(sportsApiErrorMessage);
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenerativeAI({ apiKey: process.env.API_KEY });
   const geminiPrompt = constructGeminiPrompt(matchInput, externalSportsData);
   console.log(`Lunghezza prompt Gemini: ${geminiPrompt.length} caratteri.`);
 
