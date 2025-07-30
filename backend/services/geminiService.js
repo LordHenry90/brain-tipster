@@ -139,7 +139,6 @@ Fattori da considerare per l'analisi preliminare (mantenendo precisione):
 
 È cruciale che l'analisi sia **esaustiva, accurata e precisa** e che **tutti i campi** del JSON richiesto siano compilati con il massimo dettaglio possibile e basati sui fatti, come base per la collaborazione.
 Analizza la partita identificata e fornisci previsioni statistiche dettagliate e precise in formato JSON.
-NON INCLUDERE NESSUN TESTO AL DI FUORI DELL'OGGETTO JSON, nemmeno i delimitatori \`\`\`json \`\`\`. La risposta deve essere ESCLUSIVAMENTE l'oggetto JSON.
 
 Dettagli Partita:
 Squadra Casa: ${matchInput.homeTeam}
@@ -179,6 +178,7 @@ Restituisci un oggetto JSON con la chiave "predictions" che contiene un oggetto 
   }
 }
 Assicurati che tutte le probabilità siano stringhe percentuali (es. "75%"). Solo JSON.
+NON INCLUDERE NESSUN TESTO AL DI FUORI DELL'OGGETTO JSON, nemmeno i delimitatori \`\`\`json \`\`\`. La risposta deve essere ESCLUSIVAMENTE l'oggetto JSON.
 `;
 };
 
