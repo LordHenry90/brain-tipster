@@ -130,11 +130,11 @@ OBIETTIVO PRINCIPALE:
 3.  **PREPARA L'ANALISI PRELIMINARE**: Fornisci un'analisi statistica dettagliata e previsioni per la partita identificata.
 
 Fattori da considerare per l'analisi preliminare (mantenendo precisione):
-1.  Stagione Corrente e Contesto (interpretazione basata su dati API e ricerca).
-2.  Performance Squadre (basata su dati API e ricerca).
-3.  Performance Storica e Variazioni Rose (basata su dati API e ricerca). ${competitionContext}
+1.  Stagione Corrente e Contesto (interpretazione basata su dati API e ricerca web).
+2.  Performance Squadre (basata su dati API e ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta).
+3.  Performance Storica e Variazioni Rose (basata su dati API e ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta). ${competitionContext}
 4.  Infortuni/Squalifiche (basati su ricerca web per conferme/ultime notizie oggettive, da integrare ai dati API che potrebbero non essere aggiornati all'ultimo minuto).
-5.  Performance Recente Giocatori Chiave (basata su ricerca).
+5.  Performance Recente Giocatori Chiave (basata su ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta).
 6.  Assetto Tattico Attuale/Probabile (basato su informazioni verificate).
 
 È cruciale che l'analisi sia **esaustiva, accurata e precisa** e che **tutti i campi** del JSON richiesto siano compilati con il massimo dettaglio possibile e basati sui fatti, come base per la collaborazione.
@@ -151,7 +151,7 @@ Restituisci un oggetto JSON con la chiave "predictions" che contiene un oggetto 
 {
   "predictions": {
     "partitaIdentificata": "stringa (OBBLIGATORIO: Descrizione partita ufficiale...)",
-    "fontiRicercaWeb": [ { "uri": "stringa", "title": "stringa" } ],
+    "fontiRicercaWeb": [ { "uri": "stringa", "title": "stringa" } (le fonti devono essere ATTENDIBILI e gli uri forniti devono essere REALI e FUNZIONANTI) ],
     "externalApiDataUsed": "boolean (true se i dati API esterni sono stati usati e sono significativi, false altrimenti)",
     "squadraVincente": { "squadra": "stringa", "probabilita": "stringa (es. '45%')" },
     "risultatoFinaleProbabilita": { "vittoriaCasa": "stringa", "pareggio": "stringa", "vittoriaOspite": "stringa" },
@@ -159,13 +159,42 @@ Restituisci un oggetto JSON con la chiave "predictions" che contiene un oggetto 
     "risultatiEsatti": [ { "risultato": "stringa", "probabilita": "stringa" } ],
     "probabiliMarcatori": [ { "nomeGiocatore": "stringa", "probabilitaGol": "stringa (es. 'Alta' o '60%')" } ],
     "statisticheMediePreviste": {
-      "falliTotali": "stringa (range es. '20-25 falli', basati su dati API se disponibili, altrimenti stima generale)",
-      "cornerTotali": "stringa (range es. '8-11 corner', basati su dati API se disponibili, altrimenti stima generale)",
-      "cartelliniGialliTotali": "stringa (range es. '3-5 cartellini gialli', basati su dati API se disponibili, altrimenti stima generale)",
-      "cartelliniRossiPossibili": "stringa (es. 'Bassa probabilità', basati su dati API e contesto partita)",
-      "tiriTotali": "stringa (range es. '22-28 tiri', stima basata su dati API e stile di gioco)",
-      "tiriInPortaTotali": "stringa (range es. '7-10 tiri in porta', stima basata su dati API e stile di gioco)",
-      "parateTotaliPortieri": "stringa (range es. '5-8 parate', stima basata sul volume di tiri previsto)"
+      "falliTotali": { "statistica" : "stringa (calcolo preciso es. '20.3',totale basato su dati API se disponibili, altrimenti ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)", 
+      "linea" : "stringa (la linea relativa alla statistica es. '20.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "cornerTotali": { "statistica" : "stringa (calcolo preciso es. '9.5',totale basato su dati API se disponibili, altrimenti ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '9.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "cartelliniTotali": { "statistica" : "stringa (calcolo preciso es. '3.5', totale basato su dati API se disponibili, altrimenti ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '3.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "tiriTotali": { "statistica" :  "stringa (calcolo preciso es. '25.7', stima totale basata su dati API, stile di gioco e ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '25.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "tiriInPortaTotali": { "statistica" :  "stringa (calcolo preciso es. '8.5', stima totale basata su dati API, stile di gioco e ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '8.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "parateTotaliPortieri": { "statistica" :  "stringa (calcolo preciso es. '4.3', stima totale basata sul volume di tiri previsto e ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta )",
+      "linea" : "stringa (la linea relativa alla statistica es. '2.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "falliSquadraCasa": { "statistica" :  "stringa (calcolo preciso es. '18.2', basati per la Squadra Casa ${matchInput.homeTeam} su dati API se disponibili, altrimenti ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '18.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "cornerSquadraCasa": { "statistica" :  "stringa (calcolo preciso es. '5.8', basati per la Squadra Casa ${matchInput.homeTeam} su dati API se disponibili, altrimenti ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '5.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "cartelliniSquadraCasa": { "statistica" :  "stringa (calcolo preciso es. '3.8', basati per la Squadra Casa ${matchInput.homeTeam} su dati API se disponibili, altrimenti ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '3.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "tiriSquadraCasa": { "statistica" :  "stringa (calcolo preciso es. '13.7', stima per la Squadra Casa ${matchInput.homeTeam} basata su dati API, stile di gioco e ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '12.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "tiriInPortaSquadraCasa": { "statistica" :  "stringa (calcolo preciso es. '6.5', stima per la Squadra Casa ${matchInput.homeTeam} basata su dati API, stile di gioco e ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '4.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "paratePortiereSquadraCasa": { "statistica" :  "stringa (calcolo preciso es. '3.3', stima basata per la Squadra Casa ${matchInput.homeTeam} sul volume di tiri previsto e ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta )",
+      "linea" : "stringa (la linea relativa alla statistica es. '2.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "falliSquadraOspite": { "statistica" :  "stringa (calcolo preciso es. '26.3', basati per la Squadra Ospite ${matchInput.awayTeam} su dati API se disponibili, altrimenti ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '22.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "cornerSquadraOspite": "stringa (calcolo preciso es. '7.5', basati per la Squadra Ospite ${matchInput.awayTeam} su dati API se disponibili, altrimenti ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '5.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "cartelliniSquadraOspite": { "statistica" :  "stringa (calcolo preciso es. '3.2', basati per la Squadra Ospite ${matchInput.awayTeam} su dati API se disponibili, altrimenti ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '3.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "tiriSquadraOspite": { "statistica" :  "stringa (calcolo preciso es. '21.7', stima basata per la Squadra Ospite ${matchInput.awayTeam} su dati API, stile di gioco e ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '19.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "tiriInPortaSquadraOspite": { "statistica" :  "stringa (calcolo preciso es. '5.5', stima basata per la Squadra Ospite ${matchInput.awayTeam} su dati API, stile di gioco e ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta)",
+      "linea" : "stringa (la linea relativa alla statistica es. '3.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} ,
+      "paratePortiereSquadraOspite": { "statistica" :  "stringa (calcolo preciso es. '2.3', stima basata sul volume di tiri previsto per la Squadra Ospite ${matchInput.awayTeam} e ricerca web delle statistiche pubbliche di provider Opta o di clienti che utilizzano Opta )",
+      "linea" : "stringa (la linea relativa alla statistica es. '2.5' ricavata dalla ricerca web sui principali bookmakers, Snai, Sisal e bet365, selezionando quella più vantaggiosa per la scommessa, sia statisticamente che per quota)"} 
     },
     "consiglioScommessaExpert": [
       {
