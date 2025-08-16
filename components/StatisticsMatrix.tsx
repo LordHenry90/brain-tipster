@@ -15,6 +15,7 @@ interface StatisticsMatrixProps {
   awayTeamName?: string;
 }
 
+
 interface StatisticRowProps {
   label: string;
   homeData?: StatisticaConLinea;
