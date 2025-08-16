@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { GeminiPredictionResponse, PredictionDetails, OverUnderGoalLine, ExactScoreProbability, ProbableScorer, WebSource, BettingTip } from '../types';
 import { StatisticsMatrix } from './StatisticsMatrix';
@@ -143,7 +142,6 @@ const Section: React.FC<SectionProps> = ({ title, children, icon, sectionClass =
   </div>
 );
 
-
 export const PredictionCard: React.FC<PredictionCardProps> = ({ predictionData }) => {
   const { parsed, rawText, searchSources: serviceSearchSources, externalSportsData } = predictionData;
 
@@ -178,7 +176,6 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({ predictionData }
             </div>
         )}
       </div>
-      
       
       {details?.partitaIdentificata && (
         <div className="mb-8 p-4 sm:p-5 bg-gradient-to-r from-brand-primary/15 via-brand-primary/10 to-brand-primary/5 border-l-4 border-brand-primary rounded-r-lg shadow-md">
@@ -294,7 +291,6 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({ predictionData }
             </Section>
           )}
 
-          
           {/* NUOVA SEZIONE MATRICE STATISTICHE */}
           {details.statisticheMediePreviste && (
             <StatisticsMatrix 
@@ -303,7 +299,7 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({ predictionData }
               awayTeamName={extractAwayTeamName(details.partitaIdentificata)}
             />
           )}
-          
+
           {details.ragionamentoAnalitico && (
              <Section title="Ragionamento Analitico Dettagliato" icon={<ChatBubbleLeftRightIcon />}>
                 <div className="p-4 bg-surface-highlight/30 rounded-lg m-2 shadow-inner border border-border-primary/10">
