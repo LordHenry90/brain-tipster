@@ -102,14 +102,37 @@ export interface TeamWinProbability {
     probabilita: string; // e.g. "60%"
 }
 
+// Nuova struttura per singola statistica con valore calcolato e linea bookmaker
+export interface StatisticaConLinea {
+  statistica: string; // Valore calcolato dall'AI (es. "20.3")
+  linea: string; // Linea dei bookmaker (es. "20.5")
+}
+
+// Struttura completa per tutte le statistiche previste
 export interface MatchStatisticsPrediction {
-  falliTotali: string; // e.g., "20-25 falli"
-  cornerTotali: string; // e.g., "8-11 corner"
-  cartelliniGialliTotali: string; // e.g., "3-5 cartellini gialli"
-  cartelliniRossiPossibili: string; // e.g., "Bassa probabilità", "Possibile 0-1"
-  tiriTotali: string; // e.g., "22-28 tiri"
-  tiriInPortaTotali: string; // e.g., "7-10 tiri in porta"
-  parateTotaliPortieri: string; // e.g., "5-8 parate"
+  // Statistiche Totali
+  falliTotali?: StatisticaConLinea;
+  cornerTotali?: StatisticaConLinea;
+  cartelliniTotali?: StatisticaConLinea;
+  tiriTotali?: StatisticaConLinea;
+  tiriInPortaTotali?: StatisticaConLinea;
+  parateTotaliPortieri?: StatisticaConLinea;
+  
+  // Statistiche Squadra Casa
+  falliSquadraCasa?: StatisticaConLinea;
+  cornerSquadraCasa?: StatisticaConLinea;
+  cartelliniSquadraCasa?: StatisticaConLinea;
+  tiriSquadraCasa?: StatisticaConLinea;
+  tiriInPortaSquadraCasa?: StatisticaConLinea;
+  paratePortiereSquadraCasa?: StatisticaConLinea;
+  
+  // Statistiche Squadra Ospite
+  falliSquadraOspite?: StatisticaConLinea;
+  cornerSquadraOspite?: StatisticaConLinea;
+  cartelliniSquadraOspite?: StatisticaConLinea;
+  tiriSquadraOspite?: StatisticaConLinea;
+  tiriInPortaSquadraOspite?: StatisticaConLinea;
+  paratePortiereSquadraOspite?: StatisticaConLinea;
 }
 
 export interface WebSource {
