@@ -36,14 +36,28 @@ const StatisticRow: React.FC<StatisticRowProps> = ({
 }) => {
   const rowBgClass = isEven ? 'bg-surface-highlight/15' : 'bg-surface-highlight/25';
 
-  const StatValue: React.FC<{ value?: string; isHome?: boolean; isAway?: boolean; isTotal?: boolean; isStat?: boolean }> = ({ 
+  const StatValue: React.FC<{ value?: string | any; isHome?: boolean; isAway?: boolean; isTotal?: boolean; isStat?: boolean }> = ({ 
     value, 
     isHome = false, 
     isAway = false, 
     isTotal = false,
     isStat = true
   }) => {
-    if (!value || value === '-') {
+    // Gestisci sia stringhe che oggetti
+    let displayValue = '';
+    
+    if (!value) {
+      displayValue = '-';
+    } else if (typeof value === 'string') {
+      displayValue = value;
+    } else if (typeof value === 'object') {
+      // Se è un oggetto, prova a accedere alle proprietà
+      displayValue = isStat ? (value.statistica || value.toString()) : (value.linea || '-');
+    } else {
+      displayValue = value.toString();
+    }
+
+    if (displayValue === '-' || displayValue === '[object Object]') {
       return (
         <div className="flex-1 px-2 py-3 flex items-center justify-center border-r border-border-primary/20 last:border-r-0">
           <span className="text-sm text-text-secondary font-bold">-</span>
@@ -61,7 +75,7 @@ const StatisticRow: React.FC<StatisticRowProps> = ({
     return (
       <div className="flex-1 px-2 py-3 flex items-center justify-center border-r border-border-primary/20 last:border-r-0">
         <span className={`text-sm ${textColor}`}>
-          {value}
+          {displayValue}
         </span>
       </div>
     );
@@ -94,47 +108,66 @@ export const StatisticsMatrix: React.FC<StatisticsMatrixProps> = ({
   homeTeamName = "CASA", 
   awayTeamName = "OSPITE" 
 }) => {
+  // DEBUG: Aggiungi console.log per vedere la struttura dei dati
+  console.log('StatisticsMatrix - statistiche:', statistiche);
+  console.log('StatisticsMatrix - falliTotali:', statistiche.falliTotali);
+  
   const formatTeamName = (name: string) => {
     return name.length > 8 ? name.substring(0, 8) : name;
+  };
+
+  // Funzione helper per convertire i dati nel formato atteso
+  const convertToStatisticaConLinea = (value: any): StatisticaConLinea | undefined => {
+    if (!value) return undefined;
+    
+    if (typeof value === 'string') {
+      // Formato legacy: stringa semplice
+      return { statistica: value, linea: '-' };
+    } else if (typeof value === 'object' && value.statistica) {
+      // Formato nuovo: oggetto con statistica e linea
+      return value as StatisticaConLinea;
+    }
+    
+    return undefined;
   };
 
   // Definizione delle righe della matrice
   const statisticsRows = [
     {
       label: "TIRI",
-      homeData: statistiche.tiriSquadraCasa,
-      awayData: statistiche.tiriSquadraOspite,
-      totalData: statistiche.tiriTotali,
+      homeData: convertToStatisticaConLinea(statistiche.tiriSquadraCasa),
+      awayData: convertToStatisticaConLinea(statistiche.tiriSquadraOspite),
+      totalData: convertToStatisticaConLinea(statistiche.tiriTotali),
     },
     {
       label: "TIRI IN PORTA",
-      homeData: statistiche.tiriInPortaSquadraCasa,
-      awayData: statistiche.tiriInPortaSquadraOspite,
-      totalData: statistiche.tiriInPortaTotali,
+      homeData: convertToStatisticaConLinea(statistiche.tiriInPortaSquadraCasa),
+      awayData: convertToStatisticaConLinea(statistiche.tiriInPortaSquadraOspite),
+      totalData: convertToStatisticaConLinea(statistiche.tiriInPortaTotali),
     },
     {
       label: "CORNER",
-      homeData: statistiche.cornerSquadraCasa,
-      awayData: statistiche.cornerSquadraOspite,
-      totalData: statistiche.cornerTotali,
+      homeData: convertToStatisticaConLinea(statistiche.cornerSquadraCasa),
+      awayData: convertToStatisticaConLinea(statistiche.cornerSquadraOspite),
+      totalData: convertToStatisticaConLinea(statistiche.cornerTotali),
     },
     {
       label: "FALLI",
-      homeData: statistiche.falliSquadraCasa,
-      awayData: statistiche.falliSquadraOspite,
-      totalData: statistiche.falliTotali,
+      homeData: convertToStatisticaConLinea(statistiche.falliSquadraCasa),
+      awayData: convertToStatisticaConLinea(statistiche.falliSquadraOspite),
+      totalData: convertToStatisticaConLinea(statistiche.falliTotali),
     },
     {
       label: "CARTELLINI",
-      homeData: statistiche.cartelliniSquadraCasa,
-      awayData: statistiche.cartelliniSquadraOspite,
-      totalData: statistiche.cartelliniTotali,
+      homeData: convertToStatisticaConLinea(statistiche.cartelliniSquadraCasa),
+      awayData: convertToStatisticaConLinea(statistiche.cartelliniSquadraOspite),
+      totalData: convertToStatisticaConLinea(statistiche.cartelliniTotali),
     },
     {
       label: "PARATE",
-      homeData: statistiche.paratePortiereSquadraCasa,
-      awayData: statistiche.paratePortiereSquadraOspite,
-      totalData: statistiche.parateTotaliPortieri,
+      homeData: convertToStatisticaConLinea(statistiche.paratePortiereSquadraCasa),
+      awayData: convertToStatisticaConLinea(statistiche.paratePortiereSquadraOspite),
+      totalData: convertToStatisticaConLinea(statistiche.parateTotaliPortieri),
     },
   ];
 
