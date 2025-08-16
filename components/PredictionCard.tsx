@@ -267,7 +267,7 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({ predictionData }
             </Section>
           )}
 
-		  {details.statisticheMediePreviste && (
+		  /*{details.statisticheMediePreviste && (
             <Section title="Altre Statistiche Medie Previste" icon={<ClipboardDocumentListIcon />}>
               <DetailItem label="Falli Totali Stimati" value={details.statisticheMediePreviste.falliTotali.statistica} className="even:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
               <DetailItem label="Corner Totali Stimati" value={details.statisticheMediePreviste.cornerTotali.statistica}  className="odd:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
@@ -276,7 +276,7 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({ predictionData }
               <DetailItem label="Tiri in Porta Stimati" value={details.statisticheMediePreviste.tiriInPortaTotali.statistica} className="odd:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
               <DetailItem label="Parate Totali Stimate" value={details.statisticheMediePreviste.parateTotaliPortieri.statistica} className="even:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
             </Section>
-          )}
+          )}*/
 
           {details.ragionamentoAnalitico && (
              <Section title="Ragionamento Analitico Dettagliato" icon={<ChatBubbleLeftRightIcon />}>

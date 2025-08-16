@@ -375,6 +375,8 @@ export const getMatchPrediction = async (matchInput) => {
     geminiResultText = response.text();
 
     console.log("📥 Testo grezzo ricevuto da Gemini (primi 500 caratteri):", geminiResultText?.substring(0, 500));
+	
+	console.log("Full Gemini Raw Response:", geminiResultText);
 
     // Estrazione delle fonti di ricerca web (se presenti)
     if (hasSearchTools && geminiResponse.candidates?.[0]?.groundingMetadata?.groundingChunks) {
