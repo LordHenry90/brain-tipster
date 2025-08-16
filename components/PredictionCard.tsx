@@ -1,6 +1,7 @@
 
 import React from 'react';
 import type { GeminiPredictionResponse, PredictionDetails, OverUnderGoalLine, ExactScoreProbability, ProbableScorer, WebSource, BettingTip } from '../types';
+import { StatisticsMatrix } from './StatisticsMatrix';
 
 // Heroicon SVGs (inline for simplicity, consider a library for more icons)
 const TrophyIcon = () => (
@@ -60,6 +61,31 @@ const DatabaseIcon = () => (
         <path fillRule="evenodd" d="M3 6a.75.75 0 0 1 .75-.75h12.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 6Zm0 4a.75.75 0 0 1 .75-.75h12.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 10Zm0 4a.75.75 0 0 1 .75-.75h12.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 14Z" clipRule="evenodd" />
     </svg>
 );
+
+// Helper functions per estrarre i nomi delle squadre
+const extractHomeTeamName = (partitaIdentificata?: string): string => {
+  if (!partitaIdentificata) return "CASA";
+  
+  // Cerca pattern "TeamA vs TeamB" o "TeamA - TeamB" 
+  const vsMatch = partitaIdentificata.match(/^([^vs\-]+)(?:\s*(?:vs|-)?\s*)([^vs\-]+)$/i);
+  if (vsMatch) {
+    return vsMatch[1].trim();
+  }
+  
+  return "CASA";
+};
+
+const extractAwayTeamName = (partitaIdentificata?: string): string => {
+  if (!partitaIdentificata) return "OSPITE";
+  
+  // Cerca pattern "TeamA vs TeamB" o "TeamA - TeamB"
+  const vsMatch = partitaIdentificata.match(/^([^vs\-]+)(?:\s*(?:vs|-)?\s*)([^vs\-]+)$/i);
+  if (vsMatch) {
+    return vsMatch[2].trim();
+  }
+  
+  return "OSPITE";
+};
 
 interface PredictionCardProps {
   predictionData: GeminiPredictionResponse;
@@ -268,16 +294,13 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({ predictionData }
             </Section>
           )}
 
+          {/* NUOVA SEZIONE MATRICE STATISTICHE */}
           {details.statisticheMediePreviste && (
-            <Section title="Altre Statistiche Medie Previste" icon={<ClipboardDocumentListIcon />}>
-              <DetailItem label="Falli Totali Stimati" value={details.statisticheMediePreviste.falliTotali} className="even:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
-              <DetailItem label="Corner Totali Stimati" value={details.statisticheMediePreviste.cornerTotali}  className="odd:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
-              <DetailItem label="Cartellini Gialli Stimati" value={details.statisticheMediePreviste.cartelliniGialliTotali} className="even:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
-              <DetailItem label="Cartellini Rossi Possibili" value={details.statisticheMediePreviste.cartelliniRossiPossibili} className="odd:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
-              <DetailItem label="Tiri Totali Stimati" value={details.statisticheMediePreviste.tiriTotali} className="even:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
-              <DetailItem label="Tiri in Porta Stimati" value={details.statisticheMediePreviste.tiriInPortaTotali} className="odd:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
-              <DetailItem label="Parate Totali Stimate" value={details.statisticheMediePreviste.parateTotaliPortieri} className="even:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
-            </Section>
+            <StatisticsMatrix 
+              statistiche={details.statisticheMediePreviste}
+              homeTeamName={extractHomeTeamName(details.partitaIdentificata)}
+              awayTeamName={extractAwayTeamName(details.partitaIdentificata)}
+            />
           )}
           
           {details.ragionamentoAnalitico && (
