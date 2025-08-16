@@ -294,6 +294,7 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({ predictionData }
             </Section>
           )}
 
+          
           {/* NUOVA SEZIONE MATRICE STATISTICHE */}
           {details.statisticheMediePreviste && (
             <StatisticsMatrix 
