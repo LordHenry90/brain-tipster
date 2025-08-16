@@ -61,30 +61,6 @@ const DatabaseIcon = () => (
     </svg>
 );
 
-// Helper functions per estrarre i nomi delle squadre
-const extractHomeTeamName = (partitaIdentificata?: string): string => {
-  if (!partitaIdentificata) return "CASA";
-  
-  // Cerca pattern "TeamA vs TeamB" o "TeamA - TeamB" 
-  const vsMatch = partitaIdentificata.match(/^([^vs\-]+)(?:\s*(?:vs|-)?\s*)([^vs\-]+)$/i);
-  if (vsMatch) {
-    return vsMatch[1].trim();
-  }
-  
-  return "CASA";
-};
-
-const extractAwayTeamName = (partitaIdentificata?: string): string => {
-  if (!partitaIdentificata) return "OSPITE";
-  
-  // Cerca pattern "TeamA vs TeamB" o "TeamA - TeamB"
-  const vsMatch = partitaIdentificata.match(/^([^vs\-]+)(?:\s*(?:vs|-)?\s*)([^vs\-]+)$/i);
-  if (vsMatch) {
-    return vsMatch[2].trim();
-  }
-  
-  return "OSPITE";
-};
 
 interface PredictionCardProps {
   predictionData: GeminiPredictionResponse;
@@ -291,13 +267,15 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({ predictionData }
             </Section>
           )}
 
-          {/* NUOVA SEZIONE MATRICE STATISTICHE */}
-          {details.statisticheMediePreviste && (
-            <StatisticsMatrix 
-              statistiche={details.statisticheMediePreviste}
-              homeTeamName={extractHomeTeamName(details.partitaIdentificata)}
-              awayTeamName={extractAwayTeamName(details.partitaIdentificata)}
-            />
+		  {details.statisticheMediePreviste && (
+            <Section title="Altre Statistiche Medie Previste" icon={<ClipboardDocumentListIcon />}>
+              <DetailItem label="Falli Totali Stimati" value={details.statisticheMediePreviste.falliTotali.statistica} className="even:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
+              <DetailItem label="Corner Totali Stimati" value={details.statisticheMediePreviste.cornerTotali.statistica}  className="odd:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
+              <DetailItem label="Cartellini Gialli Stimati" value={details.statisticheMediePreviste.cartelliniTotali.statistica} className="even:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
+              <DetailItem label="Tiri Totali Stimati" value={details.statisticheMediePreviste.tiriTotali.statistica} className="even:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
+              <DetailItem label="Tiri in Porta Stimati" value={details.statisticheMediePreviste.tiriInPortaTotali.statistica} className="odd:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
+              <DetailItem label="Parate Totali Stimate" value={details.statisticheMediePreviste.parateTotaliPortieri.statistica} className="even:bg-surface-highlight/20 hover:bg-surface-highlight/40 rounded-md"/>
+            </Section>
           )}
 
           {details.ragionamentoAnalitico && (
