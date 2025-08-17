@@ -24,7 +24,7 @@ export const LEAGUE_LIST = [
 
 // Mappa robusta per la logica di trascodifica nel backend.
 // Include alias comuni per ogni campionato.
-export const LEAGUE_CODES: { [key: string]: string } = {
+export const LEAGUE_CODES = {
     // Premier League
     "premier league": "PL",
     "epl": "PL",
