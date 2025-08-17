@@ -17,11 +17,11 @@ let fetchExternalMatchData = null;
 let callOpenRouterLLM = null;
 
 try {
-  const sportsModule = await import('./sportsApiService.js');
+  const sportsModule = await import('./footballDataService.js');
   fetchExternalMatchData = sportsModule.fetchExternalMatchData;
-  console.log('✅ sportsApiService.js caricato con successo');
+  console.log('✅ footballDataService.js caricato con successo');
 } catch (error) {
-  console.warn('⚠️ sportsApiService.js non caricato:', error.message);
+  console.warn('⚠️ footballDataService.js non caricato:', error.message);
 }
 
 try {
@@ -52,57 +52,63 @@ try {
  */
 
 const formatSportsDataForPrompt = (sportsData, homeTeamNameInput, awayTeamNameInput) => {
-  if (!sportsData || !sportsData.matchData) {
-    return "Nessun dato statistico dettagliato fornito dall'API sportiva esterna per questa partita. Basa l'analisi su conoscenze generali e ricerca web.";
+  if (!sportsData || !sportsData.match || !sportsData.head2head) {
+    return "Nessun dato statistico dettagliato fornito dall'API esterna. Basa l'analisi su conoscenze generali e ricerca web.";
   }
 
-  const md = sportsData.matchData;
-  let promptData = "\nDATI STATISTICI DETTAGLIATI FORNITI DA API ESTERNA (USA QUESTI COME FONTE PRIMARIA PER LE STATISTICHE NUMERICHE E VALUTAZIONI DI FORMA):\n";
+  const { match, head2head } = sportsData;
+  let promptData = "\nDATI STATISTICI DETTAGLIATI FORNITI DA API ESTERNA (USA QUESTI COME FONTE PRIMARIA):\n";
   
-  promptData += `Partita: ${md.homeTeamStats?.teamName || homeTeamNameInput} vs ${md.awayTeamStats?.teamName || awayTeamNameInput}\n`;
-  if (md.leagueName) promptData += `Lega: ${md.leagueName}`;
-  if (md.seasonYear) promptData += `, Stagione: ${md.seasonYear}\n`;
-  if (md.stadium) promptData += `Stadio: ${md.stadium}\n`;
-  if (md.referee) promptData += `Arbitro: ${md.referee}\n`;
+  // Informazioni generali sulla partita
+  promptData += `Partita: ${match.homeTeam.name} vs ${match.awayTeam.name}\n`;
+  promptData += `Competizione: ${match.competition.name}, Stagione: ${match.season.startDate.substring(0, 4)}\n`;
+  if (match.venue) promptData += `Stadio: ${match.venue}\n`;
   
-  const formatTeamStats = (stats, teamNameIfMissing) => {
-    if (!stats) return `  Statistiche per ${teamNameIfMissing} non disponibili.\n`;
-    let teamStr = `Squadra: ${stats.teamName || teamNameIfMissing} (ID: ${stats.teamId || 'N/A'})\n`;
-    if (stats.leagueSeason?.leagueName) teamStr += `  - Lega Analizzata: ${stats.leagueSeason.leagueName} (${stats.leagueSeason.seasonYear})\n`;
-    if (stats.form) teamStr += `  - Forma Recente: ${stats.form}\n`;
-    if (stats.fixturesPlayed) teamStr += `  - Partite Giocate: ${stats.fixturesPlayed}\n`;
-    if (stats.wins) teamStr += `  - Vittorie: ${stats.wins}\n`;
-    if (stats.draws) teamStr += `  - Pareggi: ${stats.draws}\n`;
-    if (stats.loses) teamStr += `  - Sconfitte: ${stats.loses}\n`;
-    if (stats.goalsFor?.total !== null && stats.goalsFor?.total !== undefined) teamStr += `  - Gol Fatti: ${stats.goalsFor.total} (Media: ${stats.goalsFor.average || 'N/A'})\n`;
-    if (stats.goalsAgainst?.total !== null && stats.goalsAgainst?.total !== undefined) teamStr += `  - Gol Subiti: ${stats.goalsAgainst.total} (Media: ${stats.goalsAgainst.average || 'N/A'})\n`;
-    if (stats.cleanSheets) teamStr += `  - Partite Senza Subire Gol (Clean Sheets): ${stats.cleanSheets}\n`;
-    if (stats.failedToScore) teamStr += `  - Partite Senza Segnare: ${stats.failedToScore}\n`;
-    if (stats.penaltyScored) teamStr += `  - Rigori Segnati: ${stats.penaltyScored}\n`;
-    if (stats.penaltyMissed) teamStr += `  - Rigori Falliti: ${stats.penaltyMissed}\n`;
+  const mainReferee = match.referees?.find(r => r.type === 'REFEREE');
+  if (mainReferee) promptData += `Arbitro: ${mainReferee.name}\n`;
+
+  // Funzione per formattare i dettagli di una squadra
+  const formatTeam = (team) => {
+    let teamStr = `Squadra: ${team.name} (Acronimo: ${team.tla})\n`;
+    if (team.coach) teamStr += `  - Allenatore: ${team.coach.name}\n`;
+    if (team.formation) teamStr += `  - Ultima Formazione Utilizzata: ${team.formation}\n`;
+    
+    // Aggiunge le statistiche dell'ultima partita se disponibili
+    if (team.statistics) {
+        teamStr += "  - Statistiche Ultima Partita:\n";
+        teamStr += `    - Possesso Palla: ${team.statistics.ball_possession}%\n`;
+        teamStr += `    - Tiri totali: ${team.statistics.shots}\n`;
+        teamStr += `    - Tiri in porta: ${team.statistics.shots_on_goal}\n`;
+        teamStr += `    - Falli commessi: ${team.statistics.fouls}\n`;
+        teamStr += `    - Calci d'angolo: ${team.statistics.corner_kicks}\n`;
+        teamStr += `    - Cartellini gialli: ${team.statistics.yellow_cards}\n`;
+    }
     return teamStr;
   };
 
-  promptData += "\nStatistiche Squadra Casa:\n" + formatTeamStats(md.homeTeamStats, homeTeamNameInput);
-  promptData += "\nStatistiche Squadra Ospite:\n" + formatTeamStats(md.awayTeamStats, awayTeamNameInput);
+  promptData += "\n--- SQUADRA CASA ---\n" + formatTeam(match.homeTeam);
+  promptData += "\n--- SQUADRA OSPITE ---\n" + formatTeam(match.awayTeam);
 
-  if (md.headToHead) {
-    const h2h = md.headToHead;
-    promptData += `\nScontri Diretti (H2H) Recenti (ultime ${h2h.lastMeetings.length} partite):\n`;
-    promptData += `  - Partite Totali Analizzate: ${h2h.totalMatches}\n`;
-    promptData += `  - Vittorie ${md.homeTeamStats?.teamName || homeTeamNameInput} (in H2H): ${h2h.homeTeamWinsInH2H}\n`;
-    promptData += `  - Vittorie ${md.awayTeamStats?.teamName || awayTeamNameInput} (in H2H): ${h2h.awayTeamWinsInH2H}\n`;
-    promptData += `  - Pareggi (in H2H): ${h2h.drawsInH2H}\n`;
-    if(h2h.averageGoalsInH2H) promptData += `  - Media Gol per Partita (in H2H): ${h2h.averageGoalsInH2H.toFixed(2)}\n`;
-    promptData += `  - Ultimi Incontri:\n`;
-    h2h.lastMeetings.slice(0, 5).forEach(m => {
-      promptData += `    - ${m.date}: ${m.homeTeamName} ${m.score} ${m.awayTeamName} (Vincitore: ${m.winner || 'Pareggio'})${m.leagueName ? ` [${m.leagueName}]` : ''}\n`;
-    });
-  } else {
-    promptData += "\nNessun dato sugli scontri diretti (H2H) recenti disponibile dall'API.\n";
+  // Formattazione dati Head-to-Head
+  if (head2head.aggregates) {
+    const aggregates = head2head.aggregates;
+    promptData += `\n--- SCONTRI DIRETTI (H2H) - AGGREGATO ---\n`;
+    promptData += `  - Partite Totali Analizzate: ${aggregates.numberOfMatches}\n`;
+    promptData += `  - Gol Totali: ${aggregates.totalGoals}\n`;
+    promptData += `  - Vittorie ${aggregates.homeTeam.name}: ${aggregates.homeTeam.wins}\n`;
+    promptData += `  - Vittorie ${aggregates.awayTeam.name}: ${aggregates.awayTeam.wins}\n`;
+    promptData += `  - Pareggi: ${aggregates.homeTeam.draws}\n`;
   }
   
-  promptData += "\nFINE DATI API ESTERNA.\nConsidera questi dati come base fattuale per le tue previsioni quantitative e qualitative.\n";
+  if (head2head.matches && head2head.matches.length > 0) {
+    promptData += `\n--- ULTIMI INCONTRI (H2H) ---\n`;
+    head2head.matches.slice(0, 5).forEach(m => {
+      const winner = m.score.winner === 'HOME_TEAM' ? m.homeTeam.name : m.score.winner === 'AWAY_TEAM' ? m.awayTeam.name : 'Pareggio';
+      promptData += `    - ${new Date(m.utcDate).toLocaleDateString('it-IT')}: ${m.homeTeam.name} ${m.score.fullTime.home}-${m.score.fullTime.away} ${m.awayTeam.name} (Vincitore: ${winner})\n`;
+    });
+  }
+  
+  promptData += "\nFINE DATI API ESTERNA.\n";
   return promptData;
 };
 
@@ -280,32 +286,32 @@ export const getMatchPrediction = async (matchInput) => {
   let sportsApiErrorMessage = undefined;
   let externalApiDataUsedInitially = false;
 
-  const SPORTS_API_KEY = process.env.SPORTS_API_KEY;
+  const FOOTBALL_DATA_API_KEY = process.env.FOOTBALL_DATA_API_KEY;
 
   // Tentativo di recupero dati dall'API Sports
-  if (SPORTS_API_KEY && fetchExternalMatchData) {
+  if (FOOTBALL_DATA_API_KEY && fetchExternalMatchData) {
     try {
-      console.log("🔍 Tentativo di recupero dati da API Sports...");
-      externalSportsData = await fetchExternalMatchData(matchInput, SPORTS_API_KEY);
+      console.log("🔍 Tentativo di recupero dati da da football-data.org...");
+      externalSportsData = await fetchExternalMatchData(matchInput, FOOTBALL_DATA_API_KEY);
       
       if (externalSportsData && externalSportsData.matchData && 
           (externalSportsData.matchData.homeTeamStats?.fixturesPlayed !== undefined || 
            externalSportsData.matchData.awayTeamStats?.fixturesPlayed !== undefined ||
            externalSportsData.matchData.headToHead?.totalMatches !== undefined)) {
-        console.log("✅ Dati API Sports recuperati con successo e considerati significativi.");
+        console.log("✅ Dati da football-data.org recuperati con successo e considerati significativi.");
         externalApiDataUsedInitially = true;
       } else {
-        sportsApiErrorMessage = "Dati API Sports non trovati o insufficienti per questa partita. L'analisi sarà basata su web search e conoscenze generali.";
+        sportsApiErrorMessage = "Dati da football-data.org non trovati o insufficienti per questa partita. L'analisi sarà basata su web search e conoscenze generali.";
         console.warn("⚠️ " + sportsApiErrorMessage);
       }
     } catch (sportsError) {
-      console.error("❌ Errore durante il recupero dei dati dall'API Sports:", sportsError);
+      console.error("❌ Errore durante il recupero dei dati da da football-data.org:", sportsError);
       sportsApiErrorMessage = sportsError instanceof Error ? sportsError.message : "Errore sconosciuto durante il recupero dei dati sportivi esterni.";
       externalSportsData = null;
     }
   } else {
-    if (!SPORTS_API_KEY) {
-      sportsApiErrorMessage = "SPORTS_API_KEY non configurata nel backend. Impossibile recuperare statistiche esterne dettagliate.";
+    if (!FOOTBALL_DATA_API_KEY) {
+      sportsApiErrorMessage = "FOOTBALL_DATA_API_KEY non configurata nel backend. Impossibile recuperare statistiche esterne dettagliate.";
       console.warn("⚠️ " + sportsApiErrorMessage);
     }
     if (!fetchExternalMatchData) {
