@@ -81,13 +81,15 @@ export const fetchExternalMatchData = async (matchInput, apiKey) => {
     const homeTeamName = matchInput.homeTeam.toLowerCase();
     const awayTeamName = matchInput.awayTeam.toLowerCase();
 
-    const targetMatch = dailyMatches.matches.find(match => 
-        match.homeTeam.name.toLowerCase().includes(homeTeamName) &&
-        match.awayTeam.name.toLowerCase().includes(awayTeamName)
-    );
+    // Logica di ricerca migliorata che controlla sia name che shortName
+    const targetMatch = dailyMatches.matches.find(match => {
+        const homeNameMatch = match.homeTeam.name.toLowerCase().includes(homeTeamName) || match.homeTeam.shortName.toLowerCase().includes(homeTeamName);
+        const awayNameMatch = match.awayTeam.name.toLowerCase().includes(awayTeamName) || match.awayTeam.shortName.toLowerCase().includes(awayTeamName);
+        return homeNameMatch && awayNameMatch;
+    });
 
     if (!targetMatch) {
-        console.warn(`Nessuna corrispondenza esatta per ${homeTeamName} vs ${awayTeamName} trovata.`);
+        console.warn(`Nessuna corrispondenza per ${homeTeamName} vs ${awayTeamName} trovata in data ${date}.`);
         return null;
     }
 
