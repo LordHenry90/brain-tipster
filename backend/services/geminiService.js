@@ -294,10 +294,9 @@ export const getMatchPrediction = async (matchInput) => {
       console.log("🔍 Tentativo di recupero dati da da football-data.org...");
       externalSportsData = await fetchExternalMatchData(matchInput, FOOTBALL_DATA_API_KEY);
       
-      if (externalSportsData && externalSportsData.matchData && 
-          (externalSportsData.matchData.homeTeamStats?.fixturesPlayed !== undefined || 
-           externalSportsData.matchData.awayTeamStats?.fixturesPlayed !== undefined ||
-           externalSportsData.matchData.headToHead?.totalMatches !== undefined)) {
+      if (externalSportsData && externalSportsData.match && 
+          (externalSportsData.head2head.aggregates !== undefined || 
+           externalSportsData.head2head.matches !== undefined)) {
         console.log("✅ Dati da football-data.org recuperati con successo e considerati significativi.");
         externalApiDataUsedInitially = true;
       } else {
