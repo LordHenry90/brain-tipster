@@ -2,6 +2,27 @@
 
 const API_BASE_URL = "https://api.football-data.org/v4/";
 
+// Mappa per tradurre i nomi delle leghe comuni nei loro codici API
+const LEAGUE_CODES = {
+    "champions league": "CL",
+    "uefa champions league": "CL",
+    "bundesliga": "BL1",
+    "eredivisie": "DED",
+    "campeonato brasileiro série a": "BSA",
+    "brasileirao": "BSA",
+    "primera division": "PD",
+    "la liga": "PD",
+    "ligue 1": "FL1",
+    "championship": "ELC",
+    "primeira liga": "PPL",
+    "serie a": "SA",
+    "premier league": "PL",
+    "fifa world cup": "WC",
+    "world cup": "WC",
+    "european championship": "EC",
+    "euro": "EC"
+};
+
 const makeApiRequest = async (endpoint, apiKey) => {
   if (!apiKey) {
     console.warn("FOOTBALL_DATA_API_KEY non fornita. Impossibile fare richieste.");
@@ -16,9 +37,9 @@ const makeApiRequest = async (endpoint, apiKey) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({ message: response.statusText }));
       console.error(`Errore API football-data (${response.status}): ${JSON.stringify(errorData)}`);
-      throw new Error(`Errore da football-data.org: ${errorData.message || response.statusText}`);
+      throw new Error(`Errore da football-data.org: ${errorData.message || 'Errore sconosciuto'}`);
     }
     return await response.json();
   } catch (error) {
@@ -28,56 +49,56 @@ const makeApiRequest = async (endpoint, apiKey) => {
 };
 
 /**
- * Funzione principale per ottenere i dati completi di una partita imminente tra due squadre.
+ * Funzione principale per ottenere i dati completi di una partita.
  * @param {object} matchInput Dati della partita forniti dall'utente.
  * @param {string} apiKey La tua chiave API.
  * @returns {Promise<SportsAPIData|null>} Dati completi della partita o null se non trovata.
  */
 export const fetchExternalMatchData = async (matchInput, apiKey) => {
   try {
-    // 1. Trovare l'ID delle squadre con una logica più robusta
-    const teamsResponse = await makeApiRequest('teams', apiKey);
-    if (!teamsResponse || !teamsResponse.teams) throw new Error("Risposta team non valida dall'API.");
-
-    const findTeam = (name) => {
-        const searchTerm = name.toLowerCase();
-        // Priorità 1: Corrispondenza esatta del nome
-        let team = teamsResponse.teams.find(t => t.name.toLowerCase() === searchTerm);
-        if (team) return team;
-        // Priorità 2: Corrispondenza esatta del nome breve
-        team = teamsResponse.teams.find(t => t.shortName.toLowerCase() === searchTerm);
-        if (team) return team;
-        // Priorità 3: Corrispondenza parziale (come fallback)
-        team = teamsResponse.teams.find(t => t.name.toLowerCase().includes(searchTerm));
-        return team;
-    };
-
-    const homeTeam = findTeam(matchInput.homeTeam);
-    const awayTeam = findTeam(matchInput.awayTeam);
-
-    if (!homeTeam || !awayTeam) {
-      throw new Error(`Impossibile trovare una o entrambe le squadre: ${matchInput.homeTeam}, ${matchInput.awayTeam}`);
+    // 1. DEDURRE CODICE LEGA E DATA
+    if (!matchInput.league) {
+        console.warn("Lega non fornita. Impossibile procedere con la ricerca mirata.");
+        return null;
     }
-    
-    // 2. Trovare il prossimo match tra le due squadre
-    const matchesResponse = await makeApiRequest(`teams/${homeTeam.id}/matches?status=SCHEDULED`, apiKey);
-    if (!matchesResponse || !matchesResponse.matches) throw new Error("Risposta partite non valida dall'API.");
-    
-    const upcomingMatch = matchesResponse.matches.find(m => m.awayTeam.id === awayTeam.id);
-
-    if (!upcomingMatch) {
-      console.warn(`Nessuna partita imminente trovata tra ${homeTeam.name} e ${awayTeam.name}.`);
-      return null;
+    const competitionCode = LEAGUE_CODES[matchInput.league.toLowerCase()];
+    if (!competitionCode) {
+        console.warn(`Codice lega non trovato per "${matchInput.league}".`);
+        return null;
     }
 
-    // 3. Ottenere i dettagli completi del match e, SEPARATAMENTE, l'H2H
-    console.log(`Partita trovata con ID: ${upcomingMatch.id}. Recupero dettagli e H2H...`);
+    const date = matchInput.matchDate || new Date().toISOString().split('T')[0];
+
+    // 2. TROVARE LA PARTITA SPECIFICA IN QUEL GIORNO E IN QUELLA LEGA
+    const endpoint = `competitions/${competitionCode}/matches?date=${date}`;
+    const dailyMatches = await makeApiRequest(endpoint, apiKey);
+
+    if (!dailyMatches || !dailyMatches.matches || dailyMatches.matches.length === 0) {
+        console.warn(`Nessuna partita trovata per la lega ${competitionCode} in data ${date}.`);
+        return null;
+    }
+
+    const homeTeamName = matchInput.homeTeam.toLowerCase();
+    const awayTeamName = matchInput.awayTeam.toLowerCase();
+
+    const targetMatch = dailyMatches.matches.find(match => 
+        match.homeTeam.name.toLowerCase().includes(homeTeamName) &&
+        match.awayTeam.name.toLowerCase().includes(awayTeamName)
+    );
+
+    if (!targetMatch) {
+        console.warn(`Nessuna corrispondenza esatta per ${homeTeamName} vs ${awayTeamName} trovata.`);
+        return null;
+    }
+
+    // 3. OTTENERE DETTAGLI E H2H USANDO L'ID DEL MATCH
+    console.log(`Partita trovata con ID: ${targetMatch.id}. Recupero dettagli e H2H...`);
     
-    // Chiamata 1: Dettagli del match
-    const matchDetails = await makeApiRequest(`matches/${upcomingMatch.id}`, apiKey);
+    // Chiamata 1: Dettagli completi del match
+    const matchDetails = await makeApiRequest(`matches/${targetMatch.id}`, apiKey);
 
     // Chiamata 2: Dettagli Head-to-Head
-    const h2hDetails = await makeApiRequest(`matches/${upcomingMatch.id}/head2head`, apiKey);
+    const h2hDetails = await makeApiRequest(`matches/${targetMatch.id}/head2head`, apiKey);
 
     if (!matchDetails || !h2hDetails) {
         throw new Error("La risposta dei dettagli del match o dell'H2H non è valida.");
@@ -90,7 +111,7 @@ export const fetchExternalMatchData = async (matchInput, apiKey) => {
 
   } catch (error) {
     console.error("Errore in fetchExternalMatchData (football-data):", error);
-    // Propaga l'errore per gestirlo nel servizio Gemini
+    // Propaga l'errore per gestirlo nel servizio Gemini, che mostrerà un messaggio all'utente.
     throw error;
   }
 };
