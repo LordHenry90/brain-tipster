@@ -1,27 +1,7 @@
 // Servizio per interagire con l'API di football-data.org V4
+import { LEAGUE_CODES } from '../../constants.js';
 
 const API_BASE_URL = "https://api.football-data.org/v4/";
-
-// Mappa per tradurre i nomi delle leghe comuni nei loro codici API
-const LEAGUE_CODES = {
-    "champions league": "CL",
-    "uefa champions league": "CL",
-    "bundesliga": "BL1",
-    "eredivisie": "DED",
-    "campeonato brasileiro série a": "BSA",
-    "brasileirao": "BSA",
-    "primera division": "PD",
-    "la liga": "PD",
-    "ligue 1": "FL1",
-    "championship": "ELC",
-    "primeira liga": "PPL",
-    "serie a": "SA",
-    "premier league": "PL",
-    "fifa world cup": "WC",
-    "world cup": "WC",
-    "european championship": "EC",
-    "euro": "EC"
-};
 
 const makeApiRequest = async (endpoint, apiKey) => {
   if (!apiKey) {
@@ -96,10 +76,7 @@ export const fetchExternalMatchData = async (matchInput, apiKey) => {
     // 3. OTTENERE DETTAGLI E H2H USANDO L'ID DEL MATCH
     console.log(`Partita trovata con ID: ${targetMatch.id}. Recupero dettagli e H2H...`);
     
-    // Chiamata 1: Dettagli completi del match
     const matchDetails = await makeApiRequest(`matches/${targetMatch.id}`, apiKey);
-
-    // Chiamata 2: Dettagli Head-to-Head
     const h2hDetails = await makeApiRequest(`matches/${targetMatch.id}/head2head`, apiKey);
 
     if (!matchDetails || !h2hDetails) {
@@ -113,7 +90,6 @@ export const fetchExternalMatchData = async (matchInput, apiKey) => {
 
   } catch (error) {
     console.error("Errore in fetchExternalMatchData (football-data):", error);
-    // Propaga l'errore per gestirlo nel servizio Gemini, che mostrerà un messaggio all'utente.
     throw error;
   }
 };
