@@ -1,11 +1,7 @@
 
-// Le costanti relative ai nomi dei modelli o altre configurazioni specifiche
-// del frontend possono rimanere qui, se necessario.
-// Per ora, GEMINI_MODEL_NAME, OPENROUTER_API_KEY, OPENROUTER_MODEL_NAME, e USER_SPORTS_API_KEY
-// sono gestite dal backend.
-
-// Esempio: se il frontend avesse bisogno di sapere il nome del modello per qualche motivo
-// export const GEMINI_MODEL_NAME_INFO = "gemini-2.5-flash-preview-04-17"; // Non usato al momento
+// Assumendo sintassi ESM per coerenza con @google/genai
+export const GEMINI_MODEL_NAME = "gemini-2.5-pro";
+export const OPENROUTER_MODEL_NAME = "mistralai/mistral-small-3.2-24b-instruct:free"; // Modello DeepSeek free su OpenRouter
 
 // Lista di oggetti per popolare facilmente la picklist nel frontend
 export const LEAGUE_LIST = [
