@@ -133,7 +133,7 @@ app.get('/health', (req, res) => {
         port: PORT,
         features: {
             geminiAI: !!process.env.API_KEY,
-            sportsAPI: !!process.env.SPORTS_API_KEY,
+            footballAPI: !!process.env.FOOTBALL_DATA_API_KEY,
             openRouter: !!process.env.OPENROUTER_API_KEY && process.env.DISABLE_OPENROUTER !== 'true',
             authentication: !!process.env.FRONTEND_API_KEY
         }
@@ -253,7 +253,7 @@ const server = app.listen(PORT, HOST, () => {
     console.log(`🎯 API endpoint: http://${HOST}:${PORT}/api/predict`);
     console.log('\n🔧 Configurazione:');
     console.log(`   📊 Gemini AI: ${process.env.API_KEY ? '✅ Configurato' : '❌ MANCANTE (CRITICO!)'}`);
-    console.log(`   ⚽ Sports API: ${process.env.SPORTS_API_KEY ? '✅ Presente' : '⚠️ NON PRESENTE'}`);
+    console.log(`   ⚽ Sports API: ${process.env.FOOTBALL_DATA_API_KEY ? '✅ Presente' : '⚠️ NON PRESENTE'}`);
     console.log(`   🤖 OpenRouter: ${process.env.OPENROUTER_API_KEY && process.env.DISABLE_OPENROUTER !== 'true' ? '✅ Attivo' : '⚠️ Disabilitato'}`);
     console.log(`   🔐 Auth Frontend: ${process.env.FRONTEND_API_KEY ? '✅ Attiva' : '⚠️ DISATTIVATA'}`);
     console.log('================================\n');
