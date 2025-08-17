@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { fetchExternalMatchData } from './footballDataService.js';
 import { callOpenRouterLLM } from './openRouterService.js';
-import { constants } from '../../constants.js';
+import { constants } from '../constants.js';
 
 // Import delle costanti con fallback se non esistono
 let GEMINI_MODEL_NAME, OPENROUTER_MODEL_NAME;
