@@ -1,11 +1,12 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { fetchExternalMatchData } from './footballDataService.js';
 import { callOpenRouterLLM } from './openRouterService.js';
+import { constants } from '../../constants.js';
 
 // Import delle costanti con fallback se non esistono
 let GEMINI_MODEL_NAME, OPENROUTER_MODEL_NAME;
 try {
-  const constants = await import('../constants.js');
+  //const constants = await import('../constants.js');
   GEMINI_MODEL_NAME = constants.GEMINI_MODEL_NAME || 'gemini-1.5-flash';
   OPENROUTER_MODEL_NAME = constants.OPENROUTER_MODEL_NAME || 'mistralai/mistral-7b-instruct:free';
   console.log(constants.GEMINI_MODEL_NAME);
