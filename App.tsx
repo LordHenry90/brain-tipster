@@ -24,12 +24,12 @@ if (import.meta.env.DEV) {
 // **** IMPORTANTE PER LA PRODUZIONE ****
 // Questa chiave API viene inviata nell'header X-API-KEY per autenticare il frontend al backend.
 // Deve corrispondere alla variabile d'ambiente FRONTEND_API_KEY configurata nel tuo backend.
-const CLIENT_SIDE_API_KEY: string = 'e20AL7XEDZVXQ3n3ly2v7SSE5YBl5fpi3GkzQM858oUHTM8bdMM5v3yvUEKlXYUkyGRVhExQr7CnCJDO6PWZhoNvC1iJCnGhoxBlpxeLUYdmnyIDHEEa5unTbZhpVsg8';
+const CLIENT_SIDE_API_KEY: string = import.meta.env.VITE_CLIENT_SIDE_API_KEY || '';
 
 // Questo controllo verifica se la chiave è il placeholder ORIGINALE, non la tua chiave attuale.
 // Se hai già sostituito 'YOUR_SECRET_FRONTEND_API_KEY_HERE' con la tua chiave, questo log non apparirà, ed è corretto.
-if (CLIENT_SIDE_API_KEY === 'YOUR_SECRET_FRONTEND_API_KEY_HERE') { 
-  console.warn('ATTENZIONE: CLIENT_SIDE_API_KEY è ancora il placeholder. Aggiornala con la chiave API corretta per il backend, se l\'autenticazione è attiva sul backend!');
+if (!CLIENT_SIDE_API_KEY) { 
+  console.warn('ATTENZIONE: La variabile VITE_CLIENT_SIDE_API_KEY non è stata trovata nel file .env. Le chiamate al backend potrebbero fallire se l\'autenticazione è attiva.');
 }
 // --- FINE CONFIGURAZIONE API KEY FRONTEND ---
 

@@ -11,7 +11,9 @@
     "build:vite": "vite build --outDir dist --emptyOutDir",
     "build:copy": "node copy-build.js",
     "build:emergency": "node manual-build.js",
-    "build:railway": "cd backend && npm install --production",
+    // --- MODIFICA QUESTA RIGA ---
+    "build:railway": "npm run build", 
+    // --- FINE MODIFICA ---
     "start": "cd backend && npm start",
     "preview": "vite preview --outDir dist",
     "postinstall": "cd backend && npm install"
