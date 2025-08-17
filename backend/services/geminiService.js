@@ -1,4 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { fetchExternalMatchData } from './footballDataService.js';
+import { callOpenRouterLLM } from './openRouterService.js';
 
 // Import delle costanti con fallback se non esistono
 let GEMINI_MODEL_NAME, OPENROUTER_MODEL_NAME;
@@ -6,13 +8,15 @@ try {
   const constants = await import('../constants.js');
   GEMINI_MODEL_NAME = constants.GEMINI_MODEL_NAME || 'gemini-1.5-flash';
   OPENROUTER_MODEL_NAME = constants.OPENROUTER_MODEL_NAME || 'mistralai/mistral-7b-instruct:free';
+  console.log(constants.GEMINI_MODEL_NAME);
+  console.log(constants.OPENROUTER_MODEL_NAME);
 } catch (error) {
   console.warn('⚠️ constants.js non trovato, uso valori di default');
   GEMINI_MODEL_NAME = 'gemini-1.5-flash';
   OPENROUTER_MODEL_NAME = 'mistralai/mistral-7b-instruct:free';
 }
 
-// Import dei servizi con gestione errori
+/* Import dei servizi con gestione errori
 let fetchExternalMatchData = null;
 let callOpenRouterLLM = null;
 
@@ -30,7 +34,7 @@ try {
   console.log('✅ openRouterService.js caricato con successo');
 } catch (error) {
   console.warn('⚠️ openRouterService.js non caricato:', error.message);
-}
+}*/
 
 // Tipi importati come JSDoc per riferimento, dato che siamo in JS
 /**
