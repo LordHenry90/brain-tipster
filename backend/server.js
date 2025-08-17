@@ -19,8 +19,8 @@ dotenv.config();
 
 const app = express();
 
-// AGGIUNGI QUESTA LINEA PRIMA dei middleware di rate limiting
-app.set('trust proxy', true);
+// Specifica di fidarsi del primo hop del proxy (standard per Railway)
+app.set('trust proxy', 1);
 
 // Porta dinamica per Railway (Railway assegna automaticamente la porta)
 const PORT = process.env.PORT || 3001;

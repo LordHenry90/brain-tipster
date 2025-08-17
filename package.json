@@ -5,15 +5,13 @@
   "scripts": {
     "dev": "vite --host localhost --port 5173",
     "dev:backend": "cd backend && npm run dev",
-    "build": "npm run build:railway",
+    "build": "npm run build:vite && npm run build:copy",
     "build:local": "npm run build:try || npm run build:emergency",
     "build:try": "npm run build:vite && npm run build:copy",
     "build:vite": "vite build --outDir dist --emptyOutDir",
     "build:copy": "node copy-build.js",
     "build:emergency": "node manual-build.js",
-    // --- MODIFICA QUESTA RIGA ---
     "build:railway": "npm run build", 
-    // --- FINE MODIFICA ---
     "start": "cd backend && npm start",
     "preview": "vite preview --outDir dist",
     "postinstall": "cd backend && npm install"
