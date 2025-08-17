@@ -1,5 +1,5 @@
 // Servizio per interagire con l'API di football-data.org V4
-import { LEAGUE_CODES } from '../../constants.js';
+import { LEAGUE_CODES } from '../constants.js';
 
 const API_BASE_URL = "https://api.football-data.org/v4/";
 
