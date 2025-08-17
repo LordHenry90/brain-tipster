@@ -35,12 +35,25 @@ const makeApiRequest = async (endpoint, apiKey) => {
  */
 export const fetchExternalMatchData = async (matchInput, apiKey) => {
   try {
-    // 1. Trovare l'ID delle squadre
+    // 1. Trovare l'ID delle squadre con una logica più robusta
     const teamsResponse = await makeApiRequest('teams', apiKey);
     if (!teamsResponse || !teamsResponse.teams) throw new Error("Risposta team non valida dall'API.");
 
-    const homeTeam = teamsResponse.teams.find(t => t.name.toLowerCase().includes(matchInput.homeTeam.toLowerCase()));
-    const awayTeam = teamsResponse.teams.find(t => t.name.toLowerCase().includes(matchInput.awayTeam.toLowerCase()));
+    const findTeam = (name) => {
+        const searchTerm = name.toLowerCase();
+        // Priorità 1: Corrispondenza esatta del nome
+        let team = teamsResponse.teams.find(t => t.name.toLowerCase() === searchTerm);
+        if (team) return team;
+        // Priorità 2: Corrispondenza esatta del nome breve
+        team = teamsResponse.teams.find(t => t.shortName.toLowerCase() === searchTerm);
+        if (team) return team;
+        // Priorità 3: Corrispondenza parziale (come fallback)
+        team = teamsResponse.teams.find(t => t.name.toLowerCase().includes(searchTerm));
+        return team;
+    };
+
+    const homeTeam = findTeam(matchInput.homeTeam);
+    const awayTeam = findTeam(matchInput.awayTeam);
 
     if (!homeTeam || !awayTeam) {
       throw new Error(`Impossibile trovare una o entrambe le squadre: ${matchInput.homeTeam}, ${matchInput.awayTeam}`);
@@ -77,6 +90,7 @@ export const fetchExternalMatchData = async (matchInput, apiKey) => {
 
   } catch (error) {
     console.error("Errore in fetchExternalMatchData (football-data):", error);
-    return null;
+    // Propaga l'errore per gestirlo nel servizio Gemini
+    throw error;
   }
 };
