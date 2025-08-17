@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import type { MatchInput } from '../types';
-import { LEAGUE_LIST } from '../constants'; 
 
 interface MatchInputFormProps {
   onSubmit: (matchInput: MatchInput) => void;
@@ -74,21 +73,14 @@ export const MatchInputForm: React.FC<MatchInputFormProps> = ({ onSubmit, isLoad
           <label htmlFor="league" className="block text-sm font-semibold text-text-secondary mb-2">
             Campionato/Competizione <span className="text-xs text-slate-500 font-normal">(opzionale)</span>
           </label>
-          <select
+          <input
+            type="text"
             id="league"
             value={league}
             onChange={(e) => setLeague(e.target.value)}
+            placeholder="Es. Champions League"
             className={inputBaseClasses}
-            required
-            aria-required="true"
-          >
-            <option value="" disabled>Seleziona un campionato</option>
-            {LEAGUE_LIST.map((l) => (
-              <option key={l.code} value={l.name}>
-                {l.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <div>
           <label htmlFor="matchDate" className="block text-sm font-semibold text-text-secondary mb-2">
